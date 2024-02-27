@@ -1,4 +1,4 @@
-name: d:\gitscripts\cliwac_drought_risk\.conda
+name: d:\gitscripts\brandenburg-drought-study\.conda
 channels:
   - conda-forge
   - defaults
@@ -306,4 +306,4 @@ dependencies:
   - zlib=1.2.13=hcfcfb64_4
   - zlib-ng=2.0.6=h8ffe710_0
   - zstd=1.5.2=h19a0ad4_0
-prefix: d:\gitscripts\cliwac_drought_risk\.conda
+prefix: d:\gitscripts\brandenburg-drought-study\.conda
