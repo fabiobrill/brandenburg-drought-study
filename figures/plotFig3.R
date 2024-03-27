@@ -31,42 +31,20 @@ for(coi in c("wheat", "rye", "barley", "maize")){
                                   geom_abline() +theme_bw() +xlim(0,12000) +ylim(0,12000) +
                                   xlab("Modelled yield (PP)") +ylab("Expected yield") +
                                   theme(axis.text=element_text(size=13),
-                                  axis.title=element_text(size=14,face="bold"))
+                                  axis.title=element_text(size=14,face="bold")) +
+                                  theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
 }
 
-x11()
-jpeg("../../figures/fig3.jpg", width=1500, height=300)
+jpeg("../../figures/fig3.jpg", width=1450, height=400, quality=100, type="cairo", antialias="subpixel")
+#png("../../figures/fig3.png", pointsize=0.01, res=400, width=17.7, height=4.8, units="cm", antialias = "cleartype")
 plot_grid(plot_grid(plotlist[["wheat"]],
                     plotlist[["rye"]],
                     plotlist[["barley"]],
                     plotlist[["maize"]],
                     nrow=1,
-                    labels="AUTO"),
-          plot_grid(sharedLegend), 
-          rel_widths = c(0.85, 0.15)
-          )
-dev.off()
-
-jpeg("../../figures/fig3.jpg", width=1450, height=400)
-plot_grid(plot_grid(plotlist[["wheat"]],
-                    plotlist[["rye"]],
-                    plotlist[["barley"]],
-                    plotlist[["maize"]],
-                    nrow=1,
-                    labels="AUTO"),
+                   labels=c("(a)", "(b)", "(c)", "(d)")),
           plot_grid(sharedLegend),
           nrow=2,
           rel_heights = c(0.85, 0.15)
           )
 dev.off()
-
-
-#ggplot(df) +geom_point(aes(modelled_wlp, SPEI_jun)) +theme_bw()
-#ggplot(df) +geom_point(aes(modelled_wlp, LSTNDVI_anom, col=factor(lbg)), size=0.01) +geom_smooth(aes(modelled_wlp, LSTNDVI_anom, col=factor(lbg))) +theme_bw()
-#ggplot(df) +geom_point(aes(1-(modelled_wlp/modelled_pp), LSTNDVI_anom), size=0.01) +geom_smooth(aes(1-(modelled_wlp/modelled_pp), LSTNDVI_anom, col=factor(lbg)), method="lm") +theme_bw()
-#ggplot(df) +geom_point(aes(modelled_wlp, azl, col=factor(lbg)), size=0.01) +geom_smooth(aes(modelled_wlp, azl)) +theme_bw()#
-
-#ggplot(df) +geom_smooth(aes(modelled_wlp, LSTNDVI)) +theme_bw()
-#ggplot(df) +geom_smooth(aes(modelled_wlp, LSTNDVI_anom)) +theme_bw()
-#ggplot(df) +geom_smooth(aes(modelled_wlp, azl)) +theme_bw()
-

@@ -54,7 +54,7 @@ names(croplabels) = c("grain_maize", "lupines", "oat", "peas", "potatoes",
                       "winter_barley", "winter_canola", "winter_wheat")
 
 #x11()
-jpeg("../../figures/FigRelGap.jpg", width = 1100, height = 800, quality=100, type="cairo", antialias = "subpixel")
+jpeg("../../figures/fig7.jpg", width = 1100, height = 800, quality=100, type="cairo", antialias = "subpixel")
 ggplot(longgaps) + geom_line(aes(year, rel_gap, col=County)) +
                    facet_wrap(~crop, labeller = labeller(crop=croplabels)) +
                    #geom_hline(yintercept = 0, col="#00000055") +
@@ -64,7 +64,7 @@ ggplot(longgaps) + geom_line(aes(year, rel_gap, col=County)) +
                                       labels=c("-100%", "-50%", "0%", "50%", "100%")) +
                    scale_x_continuous("", breaks=2013:2022, labels=2013:2022, minor_breaks=2013:2022) +
                    theme_bw(base_size = 20) +
-                   theme(legend.position = "bottom",
+                   theme(legend.position = "bottom", legend.title=element_blank(),
                          strip.background = element_rect(fill="#a5adff"),
                          axis.text.x = element_text(angle=90, vjust=0.05))
 dev.off()
