@@ -3,13 +3,13 @@
 | Figure | Data required for reproduction | Software |
 | ------ | ------------------------------ | -------- |
 | 01 | - | PowerPoint |
-| 02 | Brandenburg_landkreise_25833_id.gpkg, mapdata_2022.gpkg | QGIS |
+| 02 | brandenburg_landkreise_id_25833.gpkg, mapdata_2022.gpkg | QGIS |
 | 03 | means_per_crop.csv, cropmodel_wheat.csv, cropmodel_rye.csv, cropmodel_barley.csv, cropmodel_maize.csv | R |
 | 04 | all_indicators_on_exposure.csv, loss_table.csv, cropmodel_wheat.csv, impactcount_sodoge_etal.csv | R |
 | 05 | all_indicators_on_exposure.csv | R |
 | 06 | all_indicators_on_exposure.csv | R |
-| 07 | Brandenburg_landkreise_25833_id.gpkg, relative_gaps_longformat.csv | R |
-| 08 | Brandenburg_landkreise_25833_id.gpkg, aloss.gpkg, mapdata_2018.gpkg, mapdata_2019.gpkg, mapdata_2021.gpkg, mapdata_2022.gpkg, all_indicators_on_exposure.gpkg | QGIS |
+| 07 | brandenburg_landkreise_id_25833.gpkg, relative_gaps_longformat.csv | R |
+| 08 | brandenburg_landkreise_id_25833.gpkg.gpkg, aloss.gpkg, mapdata_2018.gpkg, mapdata_2019.gpkg, mapdata_2021.gpkg, mapdata_2022.gpkg, all_indicators_on_exposure.gpkg | QGIS |
 | 09 | all_indicators_on_exposure.csv | R |
 | 10 | X_f7.csv, shapvals_f7.npy | Python |
 | 11 | X_f7.csv, shapvals_f7.npy | Python |
