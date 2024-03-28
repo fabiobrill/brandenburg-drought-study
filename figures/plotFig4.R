@@ -39,6 +39,7 @@ cropmodel = cropmodel %>% filter(crop=="winter_wheat") %>%
                           select(year, modelled_gap) %>%
                           group_by(year) %>%
                           summarize(Modelled_Gap_Wheat = sum(modelled_gap, na.rm=T))
+cropmodel$Modelled_Gap_Wheat = rescale(cropmodel$Modelled_Gap_Wheat, to=c(0,1))
 
 # --- Merge and convert to long format
 data = left_join(fieldmeans, loss_bb)
@@ -75,9 +76,9 @@ ggplot() +geom_col(aes(year, value, fill=Indicator), data=(longdata %>% filter(I
           geom_line(aes(year, value*150, col=Indicator, linetype=Indicator), size=1.5, data=(longdata %>% filter(Indicator == "SPEI_Magnitude"))) +
           geom_line(aes(year, value*150, col=Indicator, linetype=Indicator), size=1.5, data=(longdata %>% filter(Indicator == "LSTNDVI"))) +
           geom_line(aes(year, value*150, col=Indicator, linetype=Indicator), size=1.5, data=(longdata %>% filter(Indicator == "SMI_Total"))) +
-          geom_line(aes(year, value/50000, col=Indicator, linetype=Indicator), size=1.5, data=(longdata %>% filter(Indicator == "Modelled_Gap_Wheat"))) +
+          geom_line(aes(year, value*150, col=Indicator, linetype=Indicator), size=1.5, data=(longdata %>% filter(Indicator == "Modelled_Gap_Wheat"))) +
           scale_y_continuous(sec.axis = sec_axis(~./150, name="Normalized SPEI Magnitude | SMI Total | \n LST/NDVI Anom. | Modelled Gap Wheat")) +
-          annotate("rect", xmin = 2017.5, xmax = 2022.5, ymin = -170, ymax = 170, alpha = .3,fill = "#ffeabc06") +
+          annotate("rect", xmin = 2017.5, xmax = 2022.5, ymin = -150, ymax = 150, alpha = .3,fill = "#ffeabc06") +
           scale_fill_manual(values="ivory3", labels=mylabels)+
           scale_color_manual(values=mycols, labels=mylabels) +
           scale_linetype_manual(values=mylinetypes, labels=mylabels) +
