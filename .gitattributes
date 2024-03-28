@@ -24,3 +24,6 @@ data/processed/mapdata_2022.gpkg filter=lfs diff=lfs merge=lfs -text
 data/processed/all_indicators_on_exposure.gpkg filter=lfs diff=lfs merge=lfs -text
 data/processed/shapvals_lk9b.npy filter=lfs diff=lfs merge=lfs -text
 data/processed/X_lk9b.csv filter=lfs diff=lfs merge=lfs -text
+data/processed/relative_gaps_vs_thresholds.csv filter=lfs diff=lfs merge=lfs -text
+data/processed/rel_gap_table.csv filter=lfs diff=lfs merge=lfs -text
+data/processed/thresholds_all.csv filter=lfs diff=lfs merge=lfs -text
