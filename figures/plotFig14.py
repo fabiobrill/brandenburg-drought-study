@@ -10,8 +10,6 @@ X_lk9b = pd.read_csv("../data/processed/X_lk9b.csv", index_col=0)
 shapvals_lk9 = np.load("../data/processed/shapvals_lk9.npy")
 shapvals_lk9b = np.load("../data/processed/shapvals_lk9b.npy")
 
-shapvals_lk7 = np.load("../data/processed/shapvals_lk7.npy")
-
 featurelabels = X_lk9.columns.map({
                 "Crop_type" : "Crop (Categorical)",
                 "SPEI_jun_-1" : "SPEI June < -1",
@@ -49,4 +47,4 @@ shap.summary_plot(shapvals_lk9, X_lk9, featurelabels, max_display=15, cmap="cool
 plt.savefig("fig14a.png", dpi=300, bbox_inches="tight")
 
 shap.summary_plot(shapvals_lk9b, X_lk9b, featurelabels, max_display=15, cmap="coolwarm", show=False)
-plt.savefig("fig14b2.png", dpi=300, bbox_inches="tight")
+plt.savefig("fig14b.png", dpi=300, bbox_inches="tight")

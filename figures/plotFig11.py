@@ -27,7 +27,13 @@ featurelabels = X_f7.columns.map({
                 "SMI_total" : "SMI Total",
 })
 
+# ----------------------------------------------------------------------------------------------- #
+# crop labels
 
+# caution: these hard-coded label might need to be adjusted if
+# model runs are repreated with different data subsets
+
+# check crop codes
 #cropcode = pd.DataFrame([subdata.crop, X_f7.crop_type]).T.drop_duplicates()
 
 X_f7.crop_type = X_f7.crop_type.map({
@@ -38,7 +44,7 @@ X_f7.crop_type = X_f7.crop_type.map({
                 4 : "Potatoes",
                 5 : "Rye",
                 6 : "Sugar Beet",
-                7 : "Summer Canola", # should be excluded
+                7 : "Summer Canola", # excluded
                 8 : "Sunflower",
                 9 : "Triticale",
                10 : "Winter Barley",

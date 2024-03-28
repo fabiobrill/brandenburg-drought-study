@@ -39,8 +39,13 @@ featurelabels = X_lk9.columns.map({
                 "LSTNDVI_0.5" : "LSTNDVI > 0.5"
                 })
 
-
+# ----------------------------------------------------------------------------------------------- #
 # fig15a : crop type
+
+# caution: these hard-coded label might need to be adjusted if
+# model runs are repreated with different data subsets
+
+# check crop codes
 #cropcode = pd.DataFrame([subdata.crop, X_lk9.Crop_type]).T.drop_duplicates()
 
 X_lk9.Crop_type = X_lk9.Crop_type.map({
@@ -57,6 +62,7 @@ X_lk9.Crop_type = X_lk9.Crop_type.map({
                10 : "Winter Canola",
                11 : "Winter Wheat"
 })
+
 shap.dependence_plot("Crop_type", shapvals_lk9, X_lk9, X_lk9.columns, cmap=mycmap, dot_size=3, x_jitter=0.3, show=False, interaction_index="AZL_36")
 plt.ylabel("SHAP value for crop type")
 plt.xlabel("")
