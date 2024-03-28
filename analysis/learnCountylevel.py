@@ -1,38 +1,33 @@
-from sklearn.base import clone
-from sklearn.model_selection import KFold, cross_validate
-import xgboost as xgb
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split, GroupKFold
-from sklearn.metrics import r2_score
-from sklearn.metrics import mean_absolute_error
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import GridSearchCV
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
-import seaborn as sns
+import os
 import numpy as np
 import pandas as pd
-import os
-import shap
+from sklearn.base import clone
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import r2_score
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns
+import statsmodels.api as sm
 import xgboost as xgb
+import shap
 
 pd.set_option('display.max_colwidth', 255)
 mycmap = mpl.colormaps['coolwarm']
 
 # ----------------------------------------------------------------------------------------------- #
-
+# load the wrapper function from a different script
 exec(open('learnfunctionXGB.py').read())
 
 # load data
-# 2 entries are outliers with rel_gap = 17 and 21 (Barnim potatoes)
 os.chdir("../data/processed/")
 data = pd.read_csv("relative_gaps_vs_thresholds.csv", encoding='latin-1')
-data = data.loc[(data.rel_gap < 1) & (data.rel_gap > 0)] # > -1
+
+# 2 entries are outliers with rel_gap = 17 and 21 (Barnim potatoes)
+data = data.loc[(data.rel_gap < 1) & (data.rel_gap > -1)] # '> 0' for setup 9b
 
 # ----------------------------------------------------------------------------------------------- #
+# indexing to select columns from data that start with "SPEI_", "lstvndi_", "SMI_total_", "AZL_"
 
-# select columns from data that start with "SPEI_", "lstvndi_", "SMI_total_", "AZL_"
 LSTNDVI_cols = [col for col in data.columns if col.startswith('LSTNDVI_')]
 AZL_cols = [col for col in data.columns if col.startswith('AZL_')]
 SPEI_cols = [col for col in data.columns if col.startswith('SPEI_')]
@@ -49,17 +44,18 @@ dropcols = ['SPEI_mar_-4', 'SPEI_mar_-3.5', 'SPEI_mar_-3', 'SPEI_apr_-4', 'SPEI_
             'SPEI_jul_-4', 'SPEI_jul_-3.5', 'SPEI_jul_-3']
 
 # ----------------------------------------------------------------------------------------------- #
-
 # define subdata, target and features
-subdata = data.dropna()
 
+subdata = data.dropna()
 subdata["Crop_type"] = subdata["crop"].astype("category").cat.codes
 crop_cols = ["Crop_type"]
 # alternative: convert categorical variable "crop" to dummy variable
 #subdata = pd.get_dummies(subdata, columns=["crop"])
 #crop_cols = [col for col in subdata.columns if col.startswith('crop_')]
 
+# target variable
 y = subdata["rel_gap"]
+
 # ----------------------------------------------------------------------------------------------- #
 # feature selection
 
@@ -76,11 +72,11 @@ X_lk10 = subdata[SPEI_monthly_cols + SMI_monthly_cols + AZL_cols + SMI_total_col
 
 # ----------------------------------------------------------------------------------------------- #
 # parametrization
+
 xgb_init = xgb.XGBRegressor(
     booster = 'gbtree',
     tree_method = 'hist'
 )
-
 
 param_grid = {'n_estimators':[200], # tuned later via early stopping
               'learning_rate':[0.05, 0.1, 0.2],
@@ -99,8 +95,8 @@ param_grid = {'n_estimators':[200], # tuned later via early stopping
 }
 
 # ----------------------------------------------------------------------------------------------- #
-
 # train in nested cross validation for performance metrics
+
 model_lk1, cvscores_lk1, holdoutscores_lk1, best_params_lk1 = trainXGB(xgb_init, param_grid, X_lk1, y, repetitions=10)
 model_lk2, cvscores_lk2, holdoutscores_lk2, best_params_lk2 = trainXGB(xgb_init, param_grid, X_lk2, y, repetitions=10)
 model_lk3, cvscores_lk3, holdoutscores_lk3, best_params_lk3 = trainXGB(xgb_init, param_grid, X_lk3, y, repetitions=10)
@@ -110,10 +106,14 @@ model_lk6, cvscores_lk6, holdoutscores_lk6, best_params_lk6 = trainXGB(xgb_init,
 model_lk7, cvscores_lk7, holdoutscores_lk7, best_params_lk7 = trainXGB(xgb_init, param_grid, X_lk7, y, repetitions=10)
 model_lk8, cvscores_lk8, holdoutscores_lk8, best_params_lk8 = trainXGB(xgb_init, param_grid, X_lk8, y, repetitions=10)
 model_lk9, cvscores_lk9, holdoutscores_lk9, best_params_lk9 = trainXGB(xgb_init, param_grid, X_lk9, y, repetitions=10)
+
+# 9b is using the same features as 9, but only data where rel_gap > 0
+# this specific model run has been started manually by changing the code above
 model_lk9b, cvscores_lk9b, holdoutscores_lk9b, best_params_lk9b = trainXGB(xgb_init, param_grid, X_lk9, y, repetitions=10)
 model_lk10, cvscores_lk10, holdoutscores_lk10, best_params_lk10 = trainXGB(xgb_init, param_grid, X_lk10, y, repetitions=10)
 
 # ----------------------------------------------------------------------------------------------- #
+# compute SHAP values
 
 shapvals_lk1 = shap.TreeExplainer(model_lk1).shap_values(X_lk1)
 shapvals_lk2 = shap.TreeExplainer(model_lk2).shap_values(X_lk2)
@@ -129,13 +129,7 @@ shapvals_lk10 = shap.TreeExplainer(model_lk10).shap_values(X_lk10)
 
 
 # ----------------------------------------------------------------------------------------------- #
-# save everything hard-coded
-
-# all of this should be in a function, only taking the postfix as argument,
-# e.g. "lk1" and then save everything with that postfix
-# then call this function for all setups
-# also save X and y of the models
-
+# save everything (hard-coded)
 
 pd.Series(cvscores_lk1).to_csv("cvscores_lk1.csv")
 pd.Series(holdoutscores_lk1).to_csv("holdoutscores_lk1.csv")
@@ -195,11 +189,6 @@ model_lk8.save_model("model_lk8b.json")
 np.save("shapvals_lk8b.npy", shapvals_lk8)
 shapvals_lk8 = np.load("shapvals_lk8b.npy")
 
-holdoutscores_lk8 = pd.read_csv("holdoutscores_lk8b.csv", index_col=0, header=None).values[1:11]
-best_params_lk8 = pd.read_csv("best_params_lk8b.csv")
-model_lk8 = xgb.XGBRegressor()
-model_lk8.load_model("model_lk8b.json")
-
 pd.Series(cvscores_lk9).to_csv("cvscores_lk9.csv")
 pd.Series(holdoutscores_lk9).to_csv("holdoutscores_lk9.csv")
 pd.DataFrame(best_params_lk9).to_csv("best_params_lk9.csv")
@@ -212,4 +201,11 @@ pd.Series(holdoutscores_lk9b).to_csv("holdoutscores_lk9b.csv")
 pd.DataFrame(best_params_lk9b).to_csv("best_params_lk9b.csv")
 model_lk9b.save_model("model_lk9b.json")
 np.save("shapvals_lk9b.npy", shapvals_lk9b)
+X_lk9.to_csv("X_lk9.csv")
 
+pd.Series(cvscores_lk9b).to_csv("cvscores_lk9b2.csv")
+pd.Series(holdoutscores_lk9b).to_csv("holdoutscores_lk9b2.csv")
+pd.DataFrame(best_params_lk9b).to_csv("best_params_lk9b2.csv")
+model_lk9b.save_model("model_lk9b2.json")
+np.save("shapvals_lk9b2.npy", shapvals_lk9b)
+X_lk9b.to_csv("X_lk9b2.csv")

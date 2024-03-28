@@ -6,7 +6,6 @@ def trainXGB(algorithm, param_grid, X, y, holdout=0.3, repetitions=10, ncv=5, co
 
     cvscores = []
     holdoutscores = []
-    #resultlist = []
     paramlist = []
     estimatorlist = []
 
@@ -19,7 +18,6 @@ def trainXGB(algorithm, param_grid, X, y, holdout=0.3, repetitions=10, ncv=5, co
 
         # outer loop for validation
         X_train, X_test, y_train, y_test = train_test_split(Xnp, ynp, test_size=holdout)
-        #trainlist.append(X_train)
         
         # inner loop to optimize the hyperparameters
         gs = GridSearchCV(algorithm, param_grid=param_grid, cv=ncv, n_jobs=cores)
@@ -29,10 +27,6 @@ def trainXGB(algorithm, param_grid, X, y, holdout=0.3, repetitions=10, ncv=5, co
         cvscores.append(gs_results.best_score_)
         paramlist.append(gs_results.best_params_)
         estimatorlist.append(gs_results.best_estimator_)
-        #resultlist.append(pd.DataFrame({'rank': gs_results.cv_results_['rank_test_score'],
-        #                                'mean': gs_results.cv_results_['mean_test_score'],
-        #                                'sd'  : gs_results.cv_results_['std_test_score'],
-        #                                'params': gs_results.cv_results_['params']}).sort_values("rank"))
         
         # re-train best estimator on full training set and compute score on holdout set
         best_model_of_iteration = gs_results.best_estimator_.fit(X_train, y_train)
