@@ -73,15 +73,18 @@ impacted_spei = read.csv("impactarea_threshold_spei_monthly.csv")
 # Styling
 # ----------------------------------------------------------------------------------------------- #
 rangeSMI = seq(0, 0.45, by=0.05)
-rangeSPEI = NULL
+rangeSMItotal = seq(0, 45, by=5)
+rangeSPEI = seq(-2.5, 2.5, by=0.5)
+rangeSPEImagn = seq(-6, -1, by=1)
 
 nacol = "transparent"
-pal1 = colorNumeric(c("transparent", "#a90480", "#e4ff15"), -7:-1, na.color = nacol)
-pal2 = colorNumeric(c("transparent", "#a90480", "#e4ff15","#15a9ff"), -2.5:2.5, na.color = nacol)
-pal3 = colorNumeric(c("transparent", "#a90480", "#e4ff15"), rangeSMI, na.color = nacol)
-pal4 = colorNumeric(c("transparent", "#ffd815", "#d30000"), rangeSMI, na.color = nacol)
+pal1 = colorNumeric(c("#c42902", "#ffd815", "transparent"), rangeSPEImagn, na.color = nacol)
+pal2 = colorNumeric(c("#c42902", "#ffd815", "#ffffff","#004bcd"), rangeSPEI, na.color = nacol)
+pal3 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMI, na.color = nacol)
+pal4 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMI, na.color = nacol)
+pal5 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMItotal, na.color = nacol)
 trendpal = colorNumeric(c("transparent", "#34ff1500", "#ffd500"), 0:1, na.color = nacol)
-peakpal = colorNumeric(c("transparent", "#ffd815", "#d30000"), 0:10, na.color = nacol)
+peakpal = colorNumeric(c("transparent", "#ffd815", "#c42902"), 0:10, na.color = nacol)
 
 polygoncolor = NULL
 
@@ -116,15 +119,15 @@ ui = fluidPage(
                                                "magnitude"), selected="magnitude"),
       selectInput("smimonth", "SMI Month", c("march", "april", "may", "june", "july",
                                              "magnitude", "total"), selected="total"),
-      sliderInput('speiyear', 'Year (raw)', 2013, 2022, 2018, sep=""),
+      sliderInput('speiyear', 'Year (raw)', 2013, 2022, 2022, sep=""),
       sliderInput('speith', 'SPEI Threshold (frequency)', -2.5, -0.5, -0.5, step=0.5),
-      sliderInput('smith', 'SMI Threshold (frequency)', 0, 0.45, 0.05, step=0.05)
+      sliderInput('smith', 'SMI Threshold (frequency)', 0, 0.45, 0, step=0.05)
     ),
       # Slider to separately change the threshold for soil drought magnitude - merge?
-      conditionalPanel(
-      condition = "input.tabselector == 'Hazard'",
-      sliderInput('th', 'Soil Drought Magnitude Threshold', 1, 40, 1)
-    ),
+      #conditionalPanel(
+      #condition = "input.tabselector == 'Hazard'",
+      #sliderInput('th', 'Soil Drought Magnitude Threshold', 1, 40, 1)
+    #),
       # Switch to display the exposure table as absolute hectare or percent change
       conditionalPanel(
       condition = "input.tabselector == 'Exposure'",
@@ -137,8 +140,7 @@ ui = fluidPage(
       condition = "input.tabselector == 'Vulnerability'",
       radioButtons("weighting_method", "Weighting Method:",
         c("PCA (all variables)" = "pcaw",
-          "Equal Weights" = "ew",
-          "Manual Weights" = "mw"), selected="pcaw"),
+          "Equal Weights" = "ew"), selected="pcaw"),
       checkboxGroupInput("user_settings", "Variables to include:",
         c("Agricultural population density" = "s1",
           "Dependency on agriculture for livelihood" = "s2",
@@ -163,16 +165,7 @@ ui = fluidPage(
           "Water exchange frequency" = "e12",
           "Topographic wetness index" = "e13",
           "Public participation in local policy" = "c1",
-          "Investment in disaster prevention and preparedness" = "c2")),
-      #selectInput('lname', 'Layer', c("WSC", "WSC_n", "CS1_n"))
-      sliderInput(inputId = "weight_s1", label = "Agricultural population density",
-                  min = 0, max = 1, step= 0.1, value = 1),
-      sliderInput(inputId = "weight_s2", label = "Dependency on agriculture for livelihood",
-                  min = 0, max = 1, step= 0.1, value = 1),
-      sliderInput(inputId = "weight_s3", label = "Education",
-                  min = 0, max = 1, step= 0.1, value = 1),
-      sliderInput(inputId = "weight_s4", label = "GDP per capita",
-                  min = 0, max = 1, step= 0.1, value = 1)
+          "Investment in disaster prevention and preparedness" = "c2"))
     )
   ),
   # Arrangement of displayed outputs
@@ -180,10 +173,10 @@ ui = fluidPage(
     tabsetPanel(
       id = "tabselector", type = "tabs",
       tabPanel("Hazard", uiOutput("hazard")),
-      tabPanel("Exposure", div(dataTableOutput(outputId = "exposure"), style = "font-size:50%")),
+      tabPanel("Exposure", div(DT::dataTableOutput(outputId = "exposure"), style = "font-size:50%")),
       tabPanel("Vulnerability", plotOutput(outputId = "vulnerability")),
-      tabPanel("Impacts", uiOutput("impacts")),
-      tabPanel("Crop Model", leafletOutput("cropmodel"))
+      tabPanel("Crop Model", leafletOutput("cropmodel")),
+      tabPanel("Impacts", uiOutput("impacts"))
     )
   )
 ) # sidebar
@@ -204,15 +197,14 @@ server = function(input, output){
     if(input$speimode == "raw"){
       speilayer = get(paste0("spei_", input$speimonth))
       smilayer = get(paste0("smi_", input$smimonth))
-      if(input$smimonth == "total"){smilayer = smilayer/100}
-      if(input$speimonth == "magnitude"){speipal =  pal1} else {speipal =  pal2}
-      if(input$smimonth == "magnitude"){smipal =  pal3} else {smipal =  pal4}
+      if(input$speimonth == "magnitude"){speipal= pal1; vrangeSPEI=rangeSPEImagn} else {speipal =  pal2; vrangeSPEI=rangeSPEI}
+      if(input$smimonth == "total"){vrangeSMI=rangeSMItotal; smipal=pal5} else {vrangeSMI=rangeSMI; smipal=pal3} #smilayer = smilayer/100; 
       m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
           addRasterImage(speilayer[[(input$speiyear-2012)]], colors = speipal, opacity = 0.8) %>%
-          addLegend(pal = speipal, values = -2.5:2.5, title = "SPEI", position = lpos)
+          addLegend(pal = speipal, values = vrangeSPEI, title = "SPEI", position = lpos)
       m2 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
           addRasterImage(smilayer[[(input$speiyear-2012)]], colors = smipal, opacity = 0.8) %>%
-          addLegend(pal = smipal, values = rangeSMI, title = "SMI",  position = lpos)
+          addLegend(pal = smipal, values = vrangeSMI, title = "SMI",  position = lpos)
       # Drought frequency as number of peaks > | < selected thresholds
       } else if(input$speimode == "frequency"){
       speilayer = get(paste0("spei_", input$speimonth))
@@ -234,9 +226,9 @@ server = function(input, output){
     }
     sync(m1, m2)
   })
-  
+
   # Exposure table
-  output$exposure = renderDataTable({
+  output$exposure = DT::renderDataTable({
     if(input$expmode == "Absolute"){
       exposure_table %>% dplyr::filter(NUTS_NAME == input$lk) %>% dplyr::select(-X)
     } else if(input$expmode == "Change"){
@@ -247,10 +239,13 @@ server = function(input, output){
       years = t1$year
       year_dif = paste(years[-1], "to", years[1:(length(years)-1)])
       dfout = cbind.data.frame(year_dif, t4)
-      decadal_change = round((((t1 %>% dplyr::filter(year==2022)) - (t1 %>% dplyr::filter(year==2013))) / (t1 %>% dplyr::filter(year==2013)))*100, 0) %>% dplyr::select(-year)
+      decadal_change = round((((t1 %>% dplyr::filter(year==2022)) - 
+                               (t1 %>% dplyr::filter(year==2013))) / 
+                               (t1 %>% dplyr::filter(year==2013)))*100, 0) %>% 
+                       dplyr::select(-year)
       dfout = rbind.data.frame(dfout, cbind(year_dif = "2022 to 2013", decadal_change))
-      dfout = datatable(dfout)
-      return(dfout %>% formatStyle(columns=colnames(t4), color = styleInterval(0, c("red", "green"))))
+      dfout = DT::datatable(dfout)
+      return(dfout %>% formatStyle(columns=colnames(t4), color=styleInterval(0, c("red","green"))))
     }
   })#, spacing='xs', striped=T)
 
@@ -266,14 +261,6 @@ server = function(input, output){
       }
     } else if(input$weighting_method == "pcaw"){
       plot(vulnerability["WSC_n"])
-    } else if(input$weighting_method == "mw"){
-      vdata$weight_s1 = input$weight_s1
-      vdata$weight_s2 = input$weight_s2
-      vdata$weight_s3 = input$weight_s3
-      vdata$weight_s4 = input$weight_s4
-      vulnerability$vi = (vdata$s1 * vdata$weight_s1 + vdata$s2 * vdata$weight_s2 +
-                          vdata$s3 * vdata$weight_s3 + vdata$s4 * vdata$weight_s4) / 4
-      plot(vulnerability["vi"])
     }
   })
 
