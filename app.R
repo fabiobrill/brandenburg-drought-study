@@ -54,7 +54,10 @@ vdata = dplyr::select(as.data.frame(vulnerability), -geometry)
 indicators = sf::read_sf("../processed/all_indicators_on_exposure.gpkg") %>% 
              dplyr::select(year, crop, LSTNDVI_anom, SPEI_magnitude, SMI_total)
 #lstndvi = indicators %>% select(LSTNDVI_anom) #?
-impacts = sf::read_sf("aloss.gpkg") %>% sf::st_transform(4326)
+loss_estimate = read_sf("aloss.gpkg") %>% st_transform(4326)
+library(tidyr)
+loss_long = pivot_longer(loss_estimate, cols=3:(ncol(loss_estimate)-1), names_to="year", values_to="aloss", names_prefix="aloss")
+#impacts = sf::read_sf("aloss.gpkg") %>% sf::st_transform(4326)
 #impacts = sf::read_sf("loss_4326.gpkg")
 #gaps = read.csv("gap_table.csv") %>% select(-X) # needed at all?
 
@@ -76,6 +79,7 @@ rangeSMI = seq(0, 0.45, by=0.05)
 rangeSMItotal = seq(0, 45, by=5)
 rangeSPEI = seq(-2.5, 2.5, by=0.5)
 rangeSPEImagn = seq(-6, -1, by=1)
+rangeLSTNDVI = seq(-0.5, 0.5, by=0.1)
 
 nacol = "transparent"
 pal1 = colorNumeric(c("#c42902", "#ffd815", "transparent"), rangeSPEImagn, na.color = nacol)
@@ -86,7 +90,14 @@ pal5 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMItotal, na.co
 trendpal = colorNumeric(c("transparent", "#34ff1500", "#ffd500"), 0:1, na.color = nacol)
 peakpal = colorNumeric(c("transparent", "#ffd815", "#c42902"), 0:10, na.color = nacol)
 
-polygoncolor = NULL
+#polygoncolor = colorNumeric(c("#004bcd", "#ffffff", "#ffd815", "#c42902"), rangeLSTNDVI, na.color = nacol)
+
+loss_long$colmapping = case_when(
+  loss_long$aloss < 0 ~ "#004bcd",
+  loss_long$aloss < 100 ~ "#ffffff",
+  loss_long$aloss < 200 ~ "#ffd815",
+  loss_long$aloss >= 200 ~ "#c42902"
+)
 
 lpos = "bottomleft"
 
@@ -95,11 +106,46 @@ lpos = "bottomleft"
 # ----------------------------------------------------------------------------------------------- #
 ui = fluidPage(
   theme = bslib::bs_theme(bootswatch = "sandstone"),
-  titlePanel("Drought hazard, vulnerability, and impacts for agriculture in Brandenburg"),
+  #titlePanel("Drought hazard, vulnerability, and impacts for agriculture in Brandenburg"),
+
+  tags$head(
+    tags$style(
+        HTML(
+            ".title-panel {
+                display: flex;
+                justify-content: flex-start;
+                align-items: flex-end;
+                padding: 16px;
+            }",
+            ".title-panel h1 {
+                font-size: 16pt;
+                margin: 0;
+                margin-right: 12px;
+                line-height: 1.2;
+            }",
+            ".title-panel a {
+                font-size: 12pt;
+                margin: 0;
+            }",
+            ".selectize-input, .selectize-dropdown, .optgroup-header, .data-group {
+                font-size: 75%;
+            }"
+        )
+    )
+  ),
+
+  title = "Drought hazard, vulnerability, and impacts for agriculture in Brandenburg",
+  tags$header(
+      class = "col-sm-12 title-panel",
+      tags$h1("Drought hazard, vulnerability, and impacts for agriculture in Brandenburg"),
+      tags$a(
+        href = "https://nhess.copernicus.org/",
+        "for details please see the article submitted to NHESS")
+  ),
 
   # Selection menu, sliders and buttons
   sidebarLayout(
-    sidebarPanel(
+    sidebarPanel(style = "height: 100vh",
       # Slider (1) to select the year
       conditionalPanel(
       condition = "input.tabselector == 'Impacts' || input.tabselector == 'Crop Model'",
@@ -131,7 +177,7 @@ ui = fluidPage(
       # Switch to display the exposure table as absolute hectare or percent change
       conditionalPanel(
       condition = "input.tabselector == 'Exposure'",
-      selectInput('lk', 'Landkreis', lks),
+      selectInput('lk', 'Landkreis', lks, selected="Brandenburg"),
       selectInput('expmode', "Absolute [ha] | Change [%]", c("Absolute", "Change"))
     ),
       # Complex panel for interactive weighting of the vulnerability indicators
@@ -166,17 +212,20 @@ ui = fluidPage(
           "Topographic wetness index" = "e13",
           "Public participation in local policy" = "c1",
           "Investment in disaster prevention and preparedness" = "c2"))
+    ),
+      conditionalPanel(condition = "input.tabselector == 'Impacts'",
+                    tags$div("(takes a few seconds to load)")
     )
   ),
   # Arrangement of displayed outputs
   mainPanel(
     tabsetPanel(
       id = "tabselector", type = "tabs",
-      tabPanel("Hazard", uiOutput("hazard")),
-      tabPanel("Exposure", div(DT::dataTableOutput(outputId = "exposure"), style = "font-size:50%")),
-      tabPanel("Vulnerability", plotOutput(outputId = "vulnerability")),
-      tabPanel("Crop Model", leafletOutput("cropmodel")),
-      tabPanel("Impacts", uiOutput("impacts"))
+      tabPanel("Hazard", uiOutput("hazard"), htmlOutput("description1")),
+      tabPanel("Exposure", div(DT::dataTableOutput(outputId = "exposure"), style = "font-size:50%"), htmlOutput("description2")),
+      tabPanel("Vulnerability", plotOutput(outputId = "vulnerability"), htmlOutput("description3")),
+      tabPanel("Crop Model", leafletOutput("cropmodel"), htmlOutput("description4")),
+      tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5"))#, plotlyOutput("timeplot", height="30vh"))
     )
   )
 ) # sidebar
@@ -187,10 +236,10 @@ ui = fluidPage(
 # ----------------------------------------------------------------------------------------------- #
 server = function(input, output){
   # init reactive values and observer for click events
-  rv_location = reactiveValues(id=NULL,lat=NULL,lng=NULL)
-  rv_shape = reactiveVal(FALSE)
-  observe(shinyjs::toggle(id = "tabselector", condition = ifelse(input$tabs == 'Mapview', TRUE, FALSE)))
-  
+  #rv_location = reactiveValues(id=NULL,lat=NULL,lng=NULL)
+  #rv_shape = reactiveVal(FALSE)
+  #observe(shinyjs::toggle(id = "tabselector", condition = ifelse(input$tabs == 'Impacts', TRUE, FALSE)))
+
   # Hazard indicators SPEI-Magnitude and SMI-Total as synced maps
   output$hazard = renderUI({
     # Raw values of the SPEI and SMI layers
@@ -267,18 +316,34 @@ server = function(input, output){
   # Impacts on field level (LST/NDVI-Anom.) AND on county level (EUR/ha) as synced maps
   output$impacts = renderUI({
       labelText = sprintf("<strong>%s</strong><br/>%s €.ha<sup> -1</sup>",
-                          impacts$NUTS_NAME,
-                          round(impacts[[paste0("aloss", input$yr)]], 1)) %>% lapply(htmltools::HTML)
-       m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-            addGlPolygons(data = indicators %>% dplyr::filter(year==input$yr) %>% st_cast(to="POLYGON"), 
-                          color="red",  popup = "type", group = "pols")
-       m2 = leaflet(impacts) %>% 
-              addProviderTiles(providers$CartoDB.Positron) %>%
-              addPolygons(layerId = impacts$NUTS_NAME, color = "#444444", weight = 1, smoothFactor = 0.5, opacity = 1.0,
-              fillOpacity = 0.5, fillColor = ~colorQuantile("YlOrRd", get(paste0("aloss", input$yr)))(get(paste0("aloss", input$yr))),
-              highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
-              label = lapply(labelText, htmltools::HTML))
-       sync(m1, m2)
+                          loss_estimate$NUTS_NAME,
+                          round(loss_estimate[[paste0("aloss", input$yr)]], 1)) %>% lapply(htmltools::HTML)
+      
+      subdata = indicators %>% dplyr::filter(year == input$yr) %>% dplyr::select(LSTNDVI_anom) %>% st_cast(to="POLYGON")
+      polygoncolor = case_when(
+        subdata$LSTNDVI_anom < 0 ~ "#004bcd",
+        subdata$LSTNDVI_anom < 0.1 ~ "#ffffff",
+        subdata$LSTNDVI_anom < 0.25 ~ "#ffd815",
+        subdata$LSTNDVI_anom >= 0.25 ~ "#c42902",
+        is.na(subdata$LSTNDVI_anom) ~ "transparent"
+      )
+      m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+           addGlPolygons(data = subdata, color= polygoncolor, popup = NULL, group = "pols") %>%
+                         addLegend(labels=c("< 0", "< 0.1", "< 0.25", "> 0.25"),
+                                   colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
+                                   title = "LST/NDVI-Anom.",  position = lpos)
+      subloss = loss_long %>% dplyr::filter(year==input$yr)
+      m2 = leaflet(subloss) %>% 
+             addProviderTiles(providers$CartoDB.Positron) %>%
+             addPolygons(layerId = subloss$NUTS_NAME, color = "#444444", weight = 1, smoothFactor = 0.5, opacity = 1.0,
+             fillOpacity = 0.5,
+             fillColor = subloss$colmapping,
+             highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
+             label = lapply(labelText, htmltools::HTML)) %>%
+             addLegend(labels=c("< 0", "0 - 100", "100 - 200", "> 200"),
+                       colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
+                       title = "Loss estimate [€/ha]",  position = lpos)
+      sync(m1, m2)
   })
 
   # Crop model visualization
@@ -290,6 +355,33 @@ server = function(input, output){
       addRasterImage(cropraster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
       addLegend(pal = cropmodelpal, values = vals, title = "Wheat WLP")
   })
+
+  # short texts to display at each tab below the figures
+  output$description1 = renderUI({
+    HTML("Hazard indicators SPEI and SMI. Note that the value range for SPEI Magnitude is ...
+          SMI-Total refers to the drought magnitude in the total soil (1.8 m) aggregated from
+          April to October, while all other SMI layers refer to the intensity in the top soil (25 cm).
+          For details on the methodology, please see the journal article: [link]")
+  })
+
+  output$description2 = renderUI({
+    HTML("*data from the regional statistical authorities [link], compiled by Pedro Alencar")
+  })
+  
+  output$description3 = renderUI({
+    HTML("*data by ... and ... for individual years")
+  })
+  
+  output$description4 = renderUI({
+    HTML("Simulation conducted by Pedro Alencar using the WOFOST model [link] and CERv2 climatic forcing [link]")
+  })
+
+  output$description5 = renderUI({
+    HTML("Two different impact indicators, based on RS and yield reports.
+          Values are simple estimates without quantification of uncertainty.
+          For details on the methodology, please see the journal article: [link]")
+  })
+
 }
 
 # ----------------------------------------------------------------------------------------------- #
