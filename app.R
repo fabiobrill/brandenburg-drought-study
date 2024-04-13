@@ -1,6 +1,7 @@
 # Interactive data visualization tool for agricultural drought in Brandenburg, 2013-2022
 # Details on the datasets and processing in the related publication
-# App written by Fabio Brill, 2024
+# App developed by Fabio Brill, 2024, during the project "Climate and Water under Change (CliWaC)"
+# funded by the Einstein Foundation and Berlin University Alliance
 # Contact: fabio.brill@hu-berlin.de
 
 # ----------------------------------------------------------------------------------------------- #
@@ -47,6 +48,9 @@ smi_total = rast("smi_stack_total.tif")
 exposure_table = read.csv("area_per_year_reported.csv")
 
 # vulnerability
+azl = rast("ackerzahl_nonzero_30m.tif") #%>% project("EPSG:3857") %>% crop(brandenburg) %>% mask(brandenburg)
+twi = rast("twi.tif") #%>% project("EPSG:3857") %>% crop(brandenburg) %>% mask(brandenburg)
+nfk = rast("nfk.tif") %>% project("EPSG:3857") %>% crop(brandenburg) %>% mask(brandenburg)
 vulnerability = sf::read_sf("vi_4326.geojson")
 vdata = dplyr::select(as.data.frame(vulnerability), -geometry)
 
@@ -56,16 +60,21 @@ indicators = sf::read_sf("../processed/all_indicators_on_exposure.gpkg") %>%
 #lstndvi = indicators %>% select(LSTNDVI_anom) #?
 loss_estimate = read_sf("aloss.gpkg") %>% st_transform(4326)
 library(tidyr)
-loss_long = pivot_longer(loss_estimate, cols=3:(ncol(loss_estimate)-1), names_to="year", values_to="aloss", names_prefix="aloss")
+loss_long = pivot_longer(loss_estimate, cols=3:(ncol(loss_estimate)-1), 
+                         names_to="year", values_to="aloss", names_prefix="aloss")
 #impacts = sf::read_sf("aloss.gpkg") %>% sf::st_transform(4326)
 #impacts = sf::read_sf("loss_4326.gpkg")
 #gaps = read.csv("gap_table.csv") %>% select(-X) # needed at all?
 
 # crop model
-cropmodel_wheat = rast("descriptive/cropmodel/cropmodel_pp_wheat.tif")
-cropmodel_rye = rast("descriptive/cropmodel/cropmodel_pp_rye.tif")
-cropmodel_maize = rast("descriptive/cropmodel/cropmodel_pp_maize.tif")
-cropmodel_barley = rast("descriptive/cropmodel/cropmodel_pp_barley.tif")
+pp_wheat = rast("descriptive/cropmodel/cropmodel_pp_wheat.tif")
+pp_rye = rast("descriptive/cropmodel/cropmodel_pp_rye.tif")
+pp_maize = rast("descriptive/cropmodel/cropmodel_pp_maize.tif")
+pp_barley = rast("descriptive/cropmodel/cropmodel_pp_barley.tif")
+wlp_wheat = rast("descriptive/cropmodel/cropmodel_wlp_wheat.tif")
+wlp_rye = rast("descriptive/cropmodel/cropmodel_wlp_rye.tif")
+wlp_maize = rast("descriptive/cropmodel/cropmodel_wlp_maize.tif")
+wlp_barley = rast("descriptive/cropmodel/cropmodel_wlp_barley.tif")
 
 # is this needed anywhere?
 lks = unique(exposure_table$NUTS_NAME) # names of the landkreise
@@ -80,6 +89,7 @@ rangeSMItotal = seq(0, 45, by=5)
 rangeSPEI = seq(-2.5, 2.5, by=0.5)
 rangeSPEImagn = seq(-6, -1, by=1)
 rangeLSTNDVI = seq(-0.5, 0.5, by=0.1)
+rangeCropModel = seq(0, 18000, by=1000)
 
 nacol = "transparent"
 pal1 = colorNumeric(c("#c42902", "#ffd815", "transparent"), rangeSPEImagn, na.color = nacol)
@@ -89,6 +99,7 @@ pal4 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMI, na.color =
 pal5 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMItotal, na.color = nacol)
 trendpal = colorNumeric(c("transparent", "#34ff1500", "#ffd500"), 0:1, na.color = nacol)
 peakpal = colorNumeric(c("transparent", "#ffd815", "#c42902"), 0:10, na.color = nacol)
+cropmodelpal = colorNumeric(c("#c42902", "#ffd815", "#ffffff","#004bcd"), rangeCropModel, na.color = nacol)
 
 #polygoncolor = colorNumeric(c("#004bcd", "#ffffff", "#ffd815", "#c42902"), rangeLSTNDVI, na.color = nacol)
 
@@ -127,9 +138,9 @@ ui = fluidPage(
                 font-size: 12pt;
                 margin: 0;
             }",
-            ".selectize-input, .selectize-dropdown, .optgroup-header, .data-group {
-                font-size: 75%;
-            }"
+            ".selectize-input, .selectize-dropdown, .optgroup-header, .data-group, label {
+                font-size: 80%;
+            }",
         )
     )
   ),
@@ -169,11 +180,6 @@ ui = fluidPage(
       sliderInput('speith', 'SPEI Threshold (frequency)', -2.5, -0.5, -0.5, step=0.5),
       sliderInput('smith', 'SMI Threshold (frequency)', 0, 0.45, 0, step=0.05)
     ),
-      # Slider to separately change the threshold for soil drought magnitude - merge?
-      #conditionalPanel(
-      #condition = "input.tabselector == 'Hazard'",
-      #sliderInput('th', 'Soil Drought Magnitude Threshold', 1, 40, 1)
-    #),
       # Switch to display the exposure table as absolute hectare or percent change
       conditionalPanel(
       condition = "input.tabselector == 'Exposure'",
@@ -184,12 +190,12 @@ ui = fluidPage(
       # - probably should be removed?
       conditionalPanel(
       condition = "input.tabselector == 'Vulnerability'",
-      radioButtons("weighting_method", "Weighting Method:",
-        c("PCA (all variables)" = "pcaw",
-          "Equal Weights" = "ew"), selected="pcaw"),
-      checkboxGroupInput("user_settings", "Variables to include:",
-        c("Agricultural population density" = "s1",
-          "Dependency on agriculture for livelihood" = "s2",
+      radioButtons("vlayer", "Vulnerability Indicator",
+        c("AZL (high res.)" = "azl",
+          "TWI (high res.)" = "twi",
+          "NFK (high res.)" = "nfk",
+          "Agr. population density (2021)" = "s1",
+          "Agr. dependency for livelihood (2021)" = "s2",
           "Education" = "s3",
           "GDP per capita" = "s4",
           "GPD per farmer" = "s5",
@@ -211,7 +217,8 @@ ui = fluidPage(
           "Water exchange frequency" = "e12",
           "Topographic wetness index" = "e13",
           "Public participation in local policy" = "c1",
-          "Investment in disaster prevention and preparedness" = "c2"))
+          "Investment in disaster prevention and preparedness" = "c2"),
+          selected="azl")
     ),
       conditionalPanel(condition = "input.tabselector == 'Impacts'",
                     tags$div("(takes a few seconds to load)")
@@ -223,8 +230,8 @@ ui = fluidPage(
       id = "tabselector", type = "tabs",
       tabPanel("Hazard", uiOutput("hazard"), htmlOutput("description1")),
       tabPanel("Exposure", div(DT::dataTableOutput(outputId = "exposure"), style = "font-size:50%"), htmlOutput("description2")),
-      tabPanel("Vulnerability", plotOutput(outputId = "vulnerability"), htmlOutput("description3")),
-      tabPanel("Crop Model", leafletOutput("cropmodel"), htmlOutput("description4")),
+      tabPanel("Vulnerability", leafletOutput("vulnerability"), htmlOutput("description3")),
+      tabPanel("Crop Model", uiOutput("cropmodel"), htmlOutput("description4")),
       tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5"))#, plotlyOutput("timeplot", height="30vh"))
     )
   )
@@ -298,18 +305,32 @@ server = function(input, output){
     }
   })#, spacing='xs', striped=T)
 
-  # Vulnerabiliy weighted indicator map
-  output$vulnerability = renderPlot({
-    if(input$weighting_method == "ew"){
-      vdata = vdata[, input$user_settings]
-      if(length(input$user_settings) == 1){
-        plot(vulnerability[input$user_settings])
-      } else if (length(input$user_settings) > 1){
-        vulnerability$vi = rowMeans(vdata)
-        plot(vulnerability["vi"])
-      }
-    } else if(input$weighting_method == "pcaw"){
-      plot(vulnerability["WSC_n"])
+  output$vulnerability = renderLeaflet({
+    if(input$vlayer %in% c("azl", "twi", "nfk")){
+      vraster = get(input$vlayer) %>% terra::aggregate(10)
+      vals = values(vraster)
+      vrasterpal = colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), vals, na.color = nacol)
+      leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+        addRasterImage(vraster, colors = vrasterpal, opacity = 0.8) %>%
+        addLegend(pal = vrasterpal, values = vals, title = input$vlayer)
+    } else {
+      temp = vulnerability[[input$vlayer]]
+      quantiles = quantile(temp)
+      quantilecolor = case_when(
+        temp < quantiles["25%"] ~ "#004bcd",
+        temp < quantiles["50%"] ~ "#ffffff",
+        temp < quantiles["75%"] ~ "#ffd815",
+        temp >= quantiles["75%"] ~ "#c42902",
+        is.na(temp) ~ "transparent"
+      )
+      leaflet() %>%
+        addProviderTiles(providers$CartoDB.Positron) %>%
+        addPolygons(data = vulnerability[input$vlayer], color = "#444444", weight = 1,
+          smoothFactor = 0.5, opacity = 1.0, fillOpacity = 0.5, fillColor = quantilecolor,
+          highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE)) %>%
+        addLegend(labels=c("Q1", "Q2", "Q3", "Q4"),
+                  colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
+                  title = input$vlayer,  position = lpos)
     }
   })
 
@@ -347,37 +368,52 @@ server = function(input, output){
   })
 
   # Crop model visualization
-  output$cropmodel = renderLeaflet({
-    cropraster = get(paste0("cropmodel_", input$croptype))
-    vals = values(cropraster[[input$yr - 2012]])
-    cropmodelpal = colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), vals, na.color = nacol)
-    leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-      addRasterImage(cropraster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
-      addLegend(pal = cropmodelpal, values = vals, title = "Wheat WLP")
+  output$cropmodel = renderUI({
+    pp_raster = get(paste0("pp_", input$croptype))
+    wlp_raster = get(paste0("wlp_", input$croptype))
+    pp_vals = values(pp_raster[[input$yr - 2012]])
+    wlp_vals = values(wlp_raster[[input$yr - 2012]])
+    m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+           addRasterImage(pp_raster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
+           addLegend(pal = cropmodelpal, values = rangeCropModel, title = "PP", position=lpos)
+    m2 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+           addRasterImage(wlp_raster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
+           addLegend(pal = cropmodelpal, values = rangeCropModel, title = "WLP", position=lpos)
+          sync(m1, m2)
   })
 
   # short texts to display at each tab below the figures
   output$description1 = renderUI({
-    HTML("Hazard indicators SPEI and SMI. Note that the value range for SPEI Magnitude is ...
-          SMI-Total refers to the drought magnitude in the total soil (1.8 m) aggregated from
-          April to October, while all other SMI layers refer to the intensity in the top soil (25 cm).
+    HTML("*Standardized Precipitation-Evaporation Index (SPEI) provided by Huihui Zhang [https://doi.org/10.3390/rs16050828]
+          and Soil Moisture Index (SMI) provided by Friedrich Boeing [https://doi.org/10.5194/hess-26-5137-2022]. 
+          SPEI-Magnitude refers to the sum of monthly SPEI, March-July, where SPEI < -0.5. Note that the value range of
+          SPEI-Magnitude is consequently lower than the value range of the monthly layers.
+          SMI-Total refers to the drought magnitude in the total soil (1.8 m) aggregated from April to October,
+          while all other SMI layers refer to the intensity in the top soil (25 cm).
+          'Frequency' returns the count of years where the selected indicator is above/below the selected threshold.
+          Values of SMI-Total are internally divided by 100 to match the value range of the monthly SMI layers 
+          (to use the same slider for all layers).
           For details on the methodology, please see the journal article: [link]")
   })
 
   output$description2 = renderUI({
-    HTML("*data from the regional statistical authorities [link], compiled by Pedro Alencar")
+    HTML("*data from the regional statistical authorities [https://www.statistik-berlin-brandenburg.de/c-ii-2-j],
+         compiled by Pedro Alencar [https://github.com/pedroalencar1/CropYield_BBr]")
   })
   
   output$description3 = renderUI({
     HTML("*data by ... and ... for individual years")
   })
-  
+
   output$description4 = renderUI({
-    HTML("Simulation conducted by Pedro Alencar using the WOFOST model [link] and CERv2 climatic forcing [link]")
+    HTML("*Potential production (PP) and water-limited production (WLP) for 4 selected crop types.
+          Simulation conducted by Pedro Alencar [https://orcid.org/0000-0001-6221-8580]
+          using the WOFOST model [https://doi.org/10.1016/j.agsy.2018.06.018] 
+          and CER climatic forcing [https://doi.org/10.1002/joc.4835].")
   })
 
   output$description5 = renderUI({
-    HTML("Two different impact indicators, based on RS and yield reports.
+    HTML("*Two different impact indicators, based on RS and yield reports.
           Values are simple estimates without quantification of uncertainty.
           For details on the methodology, please see the journal article: [link]")
   })
