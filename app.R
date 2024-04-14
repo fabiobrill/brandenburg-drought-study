@@ -26,83 +26,69 @@ library(tidyr)
 # ----------------------------------------------------------------------------------------------- #
 setwd("./data/appdata/")
 
-brandenburg = read_sf("Brandenburg.shp")["NAME_0"] %>% st_transform(3857)
+# outline of the country
+brandenburg = read_sf("brandenburg_3857.gpkg")
 
 # hazard
-spei_march = rast("spei_stack_march.tif") 
-spei_april = rast("spei_stack_april.tif") 
+spei_march = rast("spei_stack_march.tif")
+spei_april = rast("spei_stack_april.tif")
 spei_may = rast("spei_stack_may.tif")
-spei_june = rast("spei_stack_june.tif") 
-spei_july = rast("spei_stack_july.tif") 
-spei_magnitude = rast("SPEI_stack_magnitude.tif") 
-
-smi_march = rast("smi_stack_march.tif") 
-smi_april = rast("smi_stack_april.tif") 
+spei_june = rast("spei_stack_june.tif")
+spei_july = rast("spei_stack_july.tif")
+spei_magnitude = rast("SPEI_stack_magnitude.tif")
+smi_march = rast("smi_stack_march.tif")
+smi_april = rast("smi_stack_april.tif")
 smi_may = rast("smi_stack_may.tif")
-smi_june = rast("smi_stack_june.tif") 
-smi_july = rast("smi_stack_july.tif") 
+smi_june = rast("smi_stack_june.tif")
+smi_july = rast("smi_stack_july.tif")
 smi_magnitude = rast("smi_stack_magnitude.tif")
 smi_total = rast("smi_stack_total.tif")
 
 # exposure
 exposure_table = read.csv("area_per_year_reported.csv")
+lks = unique(exposure_table$NUTS_NAME) # names of the landkreise (i.e. counties) for selection
 
 # vulnerability
-azl = rast("ackerzahl_nonzero_30m.tif") #%>% project("EPSG:3857") %>% crop(brandenburg) %>% mask(brandenburg)
-twi = rast("twi.tif") #%>% project("EPSG:3857") %>% crop(brandenburg) %>% mask(brandenburg)
-nfk = rast("nfk.tif") %>% project("EPSG:3857") %>% crop(brandenburg) %>% mask(brandenburg)
+azl = rast("azl_downsampled.tif")
+twi = rast("twi_downsampled.tif")
+nfk = rast("nfk_cropped.tif")
 vulnerability = sf::read_sf("vi_4326.geojson")
-vdata = dplyr::select(as.data.frame(vulnerability), -geometry)
 
-# impacts # rename to indicators or simply use lstndvi? how about azl, twi, ...?
-indicators = sf::read_sf("../processed/all_indicators_on_exposure.gpkg") %>% 
-             dplyr::select(year, crop, LSTNDVI_anom, SPEI_magnitude, SMI_total)
-#lstndvi = indicators %>% select(LSTNDVI_anom) #?
-loss_estimate = read_sf("aloss.gpkg") %>% st_transform(4326)
-library(tidyr)
-loss_long = pivot_longer(loss_estimate, cols=3:(ncol(loss_estimate)-1), 
-                         names_to="year", values_to="aloss", names_prefix="aloss")
-#impacts = sf::read_sf("aloss.gpkg") %>% sf::st_transform(4326)
-#impacts = sf::read_sf("loss_4326.gpkg")
-#gaps = read.csv("gap_table.csv") %>% select(-X) # needed at all?
+# impacts
+lstndvi = read_sf("lstndvi_anom_polygons.gpkg")
+loss_estimate = read_sf("aloss4326.gpkg")
+loss_long = read_sf("aloss_longformat.gpkg")
 
 # crop model
-pp_wheat = rast("descriptive/cropmodel/cropmodel_pp_wheat.tif")
-pp_rye = rast("descriptive/cropmodel/cropmodel_pp_rye.tif")
-pp_maize = rast("descriptive/cropmodel/cropmodel_pp_maize.tif")
-pp_barley = rast("descriptive/cropmodel/cropmodel_pp_barley.tif")
-wlp_wheat = rast("descriptive/cropmodel/cropmodel_wlp_wheat.tif")
-wlp_rye = rast("descriptive/cropmodel/cropmodel_wlp_rye.tif")
-wlp_maize = rast("descriptive/cropmodel/cropmodel_wlp_maize.tif")
-wlp_barley = rast("descriptive/cropmodel/cropmodel_wlp_barley.tif")
-
-# is this needed anywhere?
-lks = unique(exposure_table$NUTS_NAME) # names of the landkreise
-impacted_lstndvi = read.csv("impactarea_thresholds_lstndvi.csv")
-impacted_spei = read.csv("impactarea_threshold_spei_monthly.csv")
+pp_wheat = rast("cropmodel_pp_wheat.tif")
+pp_rye = rast("cropmodel_pp_rye.tif")
+pp_maize = rast("cropmodel_pp_maize.tif")
+pp_barley = rast("cropmodel_pp_barley.tif")
+wlp_wheat = rast("cropmodel_wlp_wheat.tif")
+wlp_rye = rast("cropmodel_wlp_rye.tif")
+wlp_maize = rast("cropmodel_wlp_maize.tif")
+wlp_barley = rast("cropmodel_wlp_barley.tif")
 
 # ----------------------------------------------------------------------------------------------- #
 # Styling
 # ----------------------------------------------------------------------------------------------- #
+# background tiles and position of plot legends for all maps
+basemap = providers$CartoDB.Positron
+lpos = "bottomleft"
+
+# value ranges for the color bars
+rangeFreq = 0:10
 rangeSMI = seq(0, 0.45, by=0.05)
 rangeSMItotal = seq(0, 45, by=5)
 rangeSPEI = seq(-2.5, 2.5, by=0.5)
 rangeSPEImagn = seq(-6, -1, by=1)
+rangeAZL = 1:90
+rangeTWI = 5:30
+rangeNFK = 30:300
 rangeLSTNDVI = seq(-0.5, 0.5, by=0.1)
-rangeCropModel = seq(0, 18000, by=1000)
+rangeCM = seq(0, 18000, by=1000)
 
-nacol = "transparent"
-pal1 = colorNumeric(c("#c42902", "#ffd815", "transparent"), rangeSPEImagn, na.color = nacol)
-pal2 = colorNumeric(c("#c42902", "#ffd815", "#ffffff","#004bcd"), rangeSPEI, na.color = nacol)
-pal3 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMI, na.color = nacol)
-pal4 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMI, na.color = nacol)
-pal5 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMItotal, na.color = nacol)
-trendpal = colorNumeric(c("transparent", "#34ff1500", "#ffd500"), 0:1, na.color = nacol)
-peakpal = colorNumeric(c("transparent", "#ffd815", "#c42902"), 0:10, na.color = nacol)
-cropmodelpal = colorNumeric(c("#c42902", "#ffd815", "#ffffff","#004bcd"), rangeCropModel, na.color = nacol)
-
-#polygoncolor = colorNumeric(c("#004bcd", "#ffffff", "#ffd815", "#c42902"), rangeLSTNDVI, na.color = nacol)
-
+# discretization of loss esimate for simple visualization
 loss_long$colmapping = case_when(
   loss_long$aloss < 0 ~ "#004bcd",
   loss_long$aloss < 100 ~ "#ffffff",
@@ -110,15 +96,25 @@ loss_long$colmapping = case_when(
   loss_long$aloss >= 200 ~ "#c42902"
 )
 
-lpos = "bottomleft"
+# color palettes
+nacol = "transparent"
+freqpal = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeFreq, nacol)
+speipal1 = colorNumeric(c("#c42902", "#ffd815", "transparent"), rangeSPEImagn, nacol)
+speipal2 = colorNumeric(c("#c42902", "#ffd815", "#ffffff", "#004bcd"), rangeSPEI, nacol)
+smipal1 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMItotal, nacol)
+smipal2 = colorNumeric(c("transparent", "#ffd815", "#c42902"), rangeSMI, nacol)
+azlpal = colorNumeric(c("#c42902", "#ffd815", "#004bcd", "#002565"), rangeAZL, nacol)
+twipal = colorNumeric(c("#c42902", "#ffd815", "#004bcd", "#002565"), rangeTWI, nacol)
+nfkpal = colorNumeric(c("#c42902", "#ffd815", "#004bcd", "#002565"), rangeNFK, nacol)
+cropmodelpal = colorNumeric(c("#c42902", "#ffd815", "#ffffff", "#004bcd"), rangeCM, nacol)
 
 # ----------------------------------------------------------------------------------------------- #
 # UI
 # ----------------------------------------------------------------------------------------------- #
 ui = fluidPage(
   theme = bslib::bs_theme(bootswatch = "sandstone"),
-  #titlePanel("Drought hazard, vulnerability, and impacts for agriculture in Brandenburg"),
 
+  # adjustments to text formatting
   tags$head(
     tags$style(
         HTML(
@@ -157,129 +153,118 @@ ui = fluidPage(
   # Selection menu, sliders and buttons
   sidebarLayout(
     sidebarPanel(style = "height: 100vh",
-      # Slider (1) to select the year
-      conditionalPanel(
-      condition = "input.tabselector == 'Impacts' || input.tabselector == 'Crop Model'",
-      sliderInput('yr', 'Year', 2013, 2022, 2013, sep="")
-    ),
-      # Slider (2) to select the year of crop model simulation - should be merged with (1)?
-      conditionalPanel(
-      condition = "input.tabselector == 'Crop Model'",
-      #sliderInput('modelyear', 'Model Year', 1, 30, 1, sep=""),
-      selectInput("croptype", "Crop Type", c("wheat", "rye", "maize", "barley"))
-    ),
       # Selection panel for interactive view of hazard data
       conditionalPanel(
-      condition = "input.tabselector == 'Hazard'",
-      selectInput("speimode", "Raw or Frequency", c("raw", "frequency")),
-      selectInput("speimonth", "SPEI Month", c("march", "april", "may", "june", "july",
-                                               "magnitude"), selected="magnitude"),
-      selectInput("smimonth", "SMI Month", c("march", "april", "may", "june", "july",
-                                             "magnitude", "total"), selected="total"),
-      sliderInput('speiyear', 'Year (raw)', 2013, 2022, 2022, sep=""),
-      sliderInput('speith', 'SPEI Threshold (frequency)', -2.5, -0.5, -0.5, step=0.5),
-      sliderInput('smith', 'SMI Threshold (frequency)', 0, 0.45, 0, step=0.05)
-    ),
+        condition = "input.tabselector == 'Hazard'",
+        selectInput("speimode", "Raw or Frequency", c("raw", "frequency"), selected="frequency"),
+        selectInput("speimonth", "SPEI Month", c(
+          "march", "april", "may", "june", "july", "magnitude"), selected="magnitude"),
+        selectInput("smimonth", "SMI Month", c(
+          "march", "april", "may", "june", "july", "magnitude", "total"), selected="total"),
+        sliderInput('speiyear', 'Year (raw)', 2013, 2022, 2022, sep=""),
+        sliderInput('speith', 'SPEI Threshold (frequency)', -2.5, -0.5, -0.5, step=0.5),
+        sliderInput('smith', 'SMI Threshold (frequency)', 0, 0.45, 0, step=0.05)
+      ),
       # Switch to display the exposure table as absolute hectare or percent change
       conditionalPanel(
-      condition = "input.tabselector == 'Exposure'",
-      selectInput('lk', 'Landkreis', lks, selected="Brandenburg"),
-      selectInput('expmode', "Absolute [ha] | Change [%]", c("Absolute", "Change"))
-    ),
+        condition = "input.tabselector == 'Exposure'",
+        selectInput('lk', 'Landkreis', lks, selected="Brandenburg"),
+        selectInput('expmode', "Absolute [ha] | Change [%]", c("Absolute", "Change"))
+      ),
       # Complex panel for interactive weighting of the vulnerability indicators
-      # - probably should be removed?
       conditionalPanel(
-      condition = "input.tabselector == 'Vulnerability'",
-      radioButtons("vlayer", "Vulnerability Indicator",
-        c("AZL (high res.)" = "azl",
-          "TWI (high res.)" = "twi",
-          "NFK (high res.)" = "nfk",
-          "Agr. population density (2021)" = "s1",
-          "Agr. dependency for livelihood (2021)" = "s2",
-          "Education" = "s3",
-          "GDP per capita" = "s4",
-          "GPD per farmer" = "s5",
-          "Poverty" = "s6",
-          "Secured succession" = "s7",
-          "Social dependency" = "s8",
-          "Unemployment" = "s9",
-          "Field capacity" = "e1",
-          "Disadvantaged area" = "e2",
-          "Farmland ratio" = "e3",
-          "Forest ratio" = "e4",
-          "Livestock health" = "e5",
-          "Protected areas" = "e6",
-          "Soil depth" = "e7",
-          "Soil estimation" = "e8",
-          "Soil quality rating" = "e9",
-          "Soil water erosion" = "e10",
-          "Soil wind erosion" = "e11",
-          "Water exchange frequency" = "e12",
-          "Topographic wetness index" = "e13",
-          "Public participation in local policy" = "c1",
-          "Investment in disaster prevention and preparedness" = "c2"),
-          selected="azl")
+        condition = "input.tabselector == 'Vulnerability'",
+        radioButtons("vlayer", "Vulnerability Indicator",
+          c("'Ackerzahl' soil quality (high res.)" = "azl",
+            "Topographic wetness index (high res.)" = "twi",
+            "Plant-available water (nFK) (high res.)" = "nfk",
+            "Agr. population density (2021)" = "s1",
+            "Agr. dependency for livelihood (2020)" = "s2",
+            "Education (2021)" = "s3",
+            "GDP per capita (2022)" = "s4",
+            "Poverty (2019)" = "s6",
+            "Secured succession (2020)" = "s7",
+            "Social dependency (2021)" = "s8",
+            "Unemployment (2022)" = "s9",
+            "Disadvantaged area (2022)" = "e2",
+            "Farmland ratio (2020)" = "e3",
+            "Forest ratio (2020)" = "e4",
+            "Livestock health (2020)" = "e5",
+            "Protected areas (2020)" = "e6",
+            "Soil depth (2015)" = "e7",
+            "Soil water erosion (2014)" = "e10",
+            "Soil wind erosion (2014)" = "e11",
+            "Water exchange frequency (2015)" = "e12",
+            "Participation in local elections (2019)" = "c1",
+            "Investments in risk reduction (2022)" = "a1"),
+            selected="azl")
+      ),
+      # Slider to select the year for the crop model and empirical impact indicators
+      conditionalPanel(
+        condition = "input.tabselector == 'Impacts' || input.tabselector == 'Crop Model'",
+        sliderInput('yr', 'Year', 2013, 2022, 2022, sep="")
+      ),
+      # Slider to select the crop model simulation
+      conditionalPanel(
+        condition = "input.tabselector == 'Crop Model'",
+        selectInput("croptype", "Crop Type", c("wheat", "rye", "maize", "barley"))
+      ),
+      conditionalPanel(
+        condition = "input.tabselector == 'Impacts'",
+        tags$div("(takes a few seconds to load)")
+      )
     ),
-      conditionalPanel(condition = "input.tabselector == 'Impacts'",
-                    tags$div("(takes a few seconds to load)")
-    )
-  ),
-  # Arrangement of displayed outputs
-  mainPanel(
-    tabsetPanel(
-      id = "tabselector", type = "tabs",
-      tabPanel("Hazard", uiOutput("hazard"), htmlOutput("description1")),
-      tabPanel("Exposure", div(DT::dataTableOutput(outputId = "exposure"), style = "font-size:50%"), htmlOutput("description2")),
-      tabPanel("Vulnerability", leafletOutput("vulnerability"), htmlOutput("description3")),
-      tabPanel("Crop Model", uiOutput("cropmodel"), htmlOutput("description4")),
-      tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5"))#, plotlyOutput("timeplot", height="30vh"))
-    )
-  )
-) # sidebar
+    # Arrangement of displayed outputs
+    mainPanel(
+      tabsetPanel(
+        id = "tabselector", type = "tabs",
+        tabPanel("Hazard", uiOutput("hazard"), htmlOutput("description1")),
+        tabPanel("Exposure", div(DT::dataTableOutput(outputId = "exposure"),
+          style = "font-size:50%"), htmlOutput("description2")),
+        tabPanel("Vulnerability", leafletOutput("vulnerability"), htmlOutput("description3")),
+        tabPanel("Crop Model", uiOutput("cropmodel"), htmlOutput("description4")),
+        tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5"))
+      )
+    ) # main panel
+  ) # sidebar
 ) # page
 
 # ----------------------------------------------------------------------------------------------- #
 # Server
 # ----------------------------------------------------------------------------------------------- #
 server = function(input, output){
-  # init reactive values and observer for click events
-  #rv_location = reactiveValues(id=NULL,lat=NULL,lng=NULL)
-  #rv_shape = reactiveVal(FALSE)
-  #observe(shinyjs::toggle(id = "tabselector", condition = ifelse(input$tabs == 'Impacts', TRUE, FALSE)))
-
   # Hazard indicators SPEI-Magnitude and SMI-Total as synced maps
   output$hazard = renderUI({
     # Raw values of the SPEI and SMI layers
     if(input$speimode == "raw"){
       speilayer = get(paste0("spei_", input$speimonth))
       smilayer = get(paste0("smi_", input$smimonth))
-      if(input$speimonth == "magnitude"){speipal= pal1; vrangeSPEI=rangeSPEImagn} else {speipal =  pal2; vrangeSPEI=rangeSPEI}
-      if(input$smimonth == "total"){vrangeSMI=rangeSMItotal; smipal=pal5} else {vrangeSMI=rangeSMI; smipal=pal3} #smilayer = smilayer/100; 
-      m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+      if(input$speimonth == "magnitude"){speipal= speipal1; vrangeSPEI=rangeSPEImagn
+      } else {speipal =  speipal2; vrangeSPEI=rangeSPEI}
+      if(input$smimonth == "total"){vrangeSMI=rangeSMItotal; smipal=smipal1
+      } else {vrangeSMI=rangeSMI; smipal=smipal2}
+      # create the two maps and store them in separate variables
+      m1 = leaflet() %>% addProviderTiles(basemap) %>%
           addRasterImage(speilayer[[(input$speiyear-2012)]], colors = speipal, opacity = 0.8) %>%
           addLegend(pal = speipal, values = vrangeSPEI, title = "SPEI", position = lpos)
-      m2 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+      m2 = leaflet() %>% addProviderTiles(basemap) %>%
           addRasterImage(smilayer[[(input$speiyear-2012)]], colors = smipal, opacity = 0.8) %>%
           addLegend(pal = smipal, values = vrangeSMI, title = "SMI",  position = lpos)
-      # Drought frequency as number of peaks > | < selected thresholds
-      } else if(input$speimode == "frequency"){
+    # Drought frequency as number of peaks > | < selected thresholds
+    } else if(input$speimode == "frequency"){
       speilayer = get(paste0("spei_", input$speimonth))
       smilayer = get(paste0("smi_", input$smimonth))
-      if(input$smimonth == "total"){smilayer = smilayer/100}
+      if(input$smimonth == "total"){smilayer = smilayer/100} # for using the same slider
       spei_below_threshold = sum(speilayer < input$speith)
       smi_over_threshold = sum(smilayer > input$smith)
-      pal = peakpal
-      m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-          addRasterImage(spei_below_threshold, colors = pal, opacity = 0.8) %>%
-          addLegend(pal = pal, values = 0:10, title = "#SPEI < Th.", position = lpos)
-      m2 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-          addRasterImage(smi_over_threshold, colors = pal, opacity = 0.8) %>%
-          addLegend(pal = pal, values = 0:10, title = "#SMI > Th.", position = lpos)
-      # add UFZ soil drought data in separate mapview
-      #peak_over_threshold = sum(ufz > input$th)
-      #vals = values(peak_over_threshold)
-      #pal_ufz = colorNumeric(c("transparent", "#ffd815", "#d30000"), 0:7, na.color = "transparent")
+      m1 = leaflet() %>% addProviderTiles(basemap) %>%
+          addRasterImage(spei_below_threshold, colors = freqpal, opacity = 0.8) %>%
+          addLegend(pal = freqpal, values = rangeFreq, title = "#SPEI < Th.", position = lpos)
+      m2 = leaflet() %>% addProviderTiles(basemap) %>%
+          addRasterImage(smi_over_threshold, colors = freqpal, opacity = 0.8) %>%
+          addLegend(pal = freqpal, values = rangeFreq, title = "#SMI > Th.", position = lpos)
     }
+    # align both maps alongside each other
     sync(m1, m2)
   })
 
@@ -303,16 +288,16 @@ server = function(input, output){
       dfout = DT::datatable(dfout)
       return(dfout %>% formatStyle(columns=colnames(t4), color=styleInterval(0, c("red","green"))))
     }
-  })#, spacing='xs', striped=T)
+  })
 
   output$vulnerability = renderLeaflet({
     if(input$vlayer %in% c("azl", "twi", "nfk")){
-      vraster = get(input$vlayer) %>% terra::aggregate(10)
+      vraster = get(input$vlayer)
       vals = values(vraster)
-      vrasterpal = colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), vals, na.color = nacol)
-      leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+      vrasterpal = get(paste0(input$vlayer, "pal"))
+      leaflet() %>% addProviderTiles(basemap) %>%
         addRasterImage(vraster, colors = vrasterpal, opacity = 0.8) %>%
-        addLegend(pal = vrasterpal, values = vals, title = input$vlayer)
+        addLegend(pal = vrasterpal, values = vals, title = input$vlayer, position=lpos)
     } else {
       temp = vulnerability[[input$vlayer]]
       quantiles = quantile(temp)
@@ -324,10 +309,10 @@ server = function(input, output){
         is.na(temp) ~ "transparent"
       )
       leaflet() %>%
-        addProviderTiles(providers$CartoDB.Positron) %>%
+        addProviderTiles(basemap) %>%
         addPolygons(data = vulnerability[input$vlayer], color = "#444444", weight = 1,
           smoothFactor = 0.5, opacity = 1.0, fillOpacity = 0.5, fillColor = quantilecolor,
-          highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE)) %>%
+          highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = T)) %>%
         addLegend(labels=c("Q1", "Q2", "Q3", "Q4"),
                   colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
                   title = input$vlayer,  position = lpos)
@@ -337,10 +322,11 @@ server = function(input, output){
   # Impacts on field level (LST/NDVI-Anom.) AND on county level (EUR/ha) as synced maps
   output$impacts = renderUI({
       labelText = sprintf("<strong>%s</strong><br/>%s €.ha<sup> -1</sup>",
-                          loss_estimate$NUTS_NAME,
-                          round(loss_estimate[[paste0("aloss", input$yr)]], 1)) %>% lapply(htmltools::HTML)
-      
-      subdata = indicators %>% dplyr::filter(year == input$yr) %>% dplyr::select(LSTNDVI_anom) %>% st_cast(to="POLYGON")
+        loss_estimate$NUTS_NAME, round(loss_estimate[[paste0("aloss", input$yr)]], 1)) %>%
+        lapply(htmltools::HTML)
+      subdata = lstndvi %>% 
+        dplyr::filter(year == input$yr) #%>%
+        #st_cast(to="POLYGON")
       polygoncolor = case_when(
         subdata$LSTNDVI_anom < 0 ~ "#004bcd",
         subdata$LSTNDVI_anom < 0.1 ~ "#ffffff",
@@ -348,22 +334,22 @@ server = function(input, output){
         subdata$LSTNDVI_anom >= 0.25 ~ "#c42902",
         is.na(subdata$LSTNDVI_anom) ~ "transparent"
       )
-      m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-           addGlPolygons(data = subdata, color= polygoncolor, popup = NULL, group = "pols") %>%
-                         addLegend(labels=c("< 0", "< 0.1", "< 0.25", "> 0.25"),
-                                   colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
-                                   title = "LST/NDVI-Anom.",  position = lpos)
+      m1 = leaflet() %>% addProviderTiles(basemap) %>%
+        addGlPolygons(data = subdata, fillColor= polygoncolor, popup = NULL) %>%
+        addLegend(labels=c("< 0", "< 0.1", "< 0.25", "> 0.25"),
+          colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
+          title = "LST/NDVI-Anom.",  position = lpos)
       subloss = loss_long %>% dplyr::filter(year==input$yr)
       m2 = leaflet(subloss) %>% 
-             addProviderTiles(providers$CartoDB.Positron) %>%
-             addPolygons(layerId = subloss$NUTS_NAME, color = "#444444", weight = 1, smoothFactor = 0.5, opacity = 1.0,
-             fillOpacity = 0.5,
-             fillColor = subloss$colmapping,
-             highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
-             label = lapply(labelText, htmltools::HTML)) %>%
-             addLegend(labels=c("< 0", "0 - 100", "100 - 200", "> 200"),
-                       colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
-                       title = "Loss estimate [€/ha]",  position = lpos)
+        addProviderTiles(basemap) %>%
+        addPolygons(layerId = subloss$NUTS_NAME, color = "#444444", weight = 1,
+          smoothFactor = 0.5, opacity = 1.0, fillOpacity = 0.5,
+          fillColor = subloss$colmapping,
+          highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = T),
+          label = lapply(labelText, htmltools::HTML)) %>%
+        addLegend(labels=c("< 0", "0 - 100", "100 - 200", "> 200"),
+          colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
+          title = "Loss estimate [€/ha]",  position = lpos)
       sync(m1, m2)
   })
 
@@ -373,52 +359,71 @@ server = function(input, output){
     wlp_raster = get(paste0("wlp_", input$croptype))
     pp_vals = values(pp_raster[[input$yr - 2012]])
     wlp_vals = values(wlp_raster[[input$yr - 2012]])
-    m1 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-           addRasterImage(pp_raster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
-           addLegend(pal = cropmodelpal, values = rangeCropModel, title = "PP", position=lpos)
-    m2 = leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
-           addRasterImage(wlp_raster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
-           addLegend(pal = cropmodelpal, values = rangeCropModel, title = "WLP", position=lpos)
-          sync(m1, m2)
+    m1 = leaflet() %>% addProviderTiles(basemap) %>%
+      addRasterImage(pp_raster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
+      addLegend(pal = cropmodelpal, values = rangeCM, title = "PP", position=lpos)
+    m2 = leaflet() %>% addProviderTiles(basemap) %>%
+      addRasterImage(wlp_raster[[input$yr - 2012]], colors = cropmodelpal, opacity = 0.8) %>%
+      addLegend(pal = cropmodelpal, values = rangeCM, title = "WLP", position=lpos)
+    sync(m1, m2)
   })
 
   # short texts to display at each tab below the figures
   output$description1 = renderUI({
-    HTML("*Standardized Precipitation-Evaporation Index (SPEI) provided by Huihui Zhang [https://doi.org/10.3390/rs16050828]
-          and Soil Moisture Index (SMI) provided by Friedrich Boeing [https://doi.org/10.5194/hess-26-5137-2022]. 
-          SPEI-Magnitude refers to the sum of monthly SPEI, March-July, where SPEI < -0.5. Note that the value range of
-          SPEI-Magnitude is consequently lower than the value range of the monthly layers.
-          SMI-Total refers to the drought magnitude in the total soil (1.8 m) aggregated from April to October,
-          while all other SMI layers refer to the intensity in the top soil (25 cm).
-          'Frequency' returns the count of years where the selected indicator is above/below the selected threshold.
-          Values of SMI-Total are internally divided by 100 to match the value range of the monthly SMI layers 
-          (to use the same slider for all layers).
-          For details on the methodology, please see the journal article: [link]")
+    HTML(
+      "*Standardized Precipitation-Evaporation Index (SPEI) provided by Huihui Zhang 
+      [https://doi.org/10.3390/rs16050828] and Soil Moisture Index (SMI) provided by 
+      Friedrich Boeing [https://doi.org/10.5194/hess-26-5137-2022]. SPEI-Magnitude refers to the 
+      sum of monthly SPEI, March-July, where SPEI < -0.5. Note that the value range of 
+      SPEI-Magnitude is consequently lower than the value range of the monthly layers.
+      SMI-Total refers to the drought magnitude in the total soil (1.8 m) aggregated from 
+      April to October, while all other SMI layers refer to the intensity in the top soil (25 cm).
+      'Frequency' returns the count of years where the selected indicator is above/below the 
+      selected threshold. Values of SMI-Total are internally divided by 100 to match the value
+      range of the monthly SMI layers (to use the same slider for all layers).
+      For details on the methodology, please see the journal article: [link]"
+    )
   })
 
   output$description2 = renderUI({
-    HTML("*data from the regional statistical authorities [https://www.statistik-berlin-brandenburg.de/c-ii-2-j],
-         compiled by Pedro Alencar [https://github.com/pedroalencar1/CropYield_BBr]")
+    HTML(
+      "*data from the regional statistical authorities
+      [https://www.statistik-berlin-brandenburg.de/c-ii-2-j],
+      compiled by Pedro Alencar [https://github.com/pedroalencar1/CropYield_BBr]"
+    )
   })
   
   output$description3 = renderUI({
-    HTML("*data by ... and ... for individual years")
+    HTML(
+      "*data sources and descriptions see Table 1 in the journal article (link above).
+      Aggregated indicators on county level are displayed in quantiles, where
+      Q1 refers to the lowest 25% and Q4 to the highest 25% of the values.
+      Selection based on Laudien (2023): 
+      'Agricultural drought vulnerability in Brandenburg - A composite index assessment',
+      Master's thesis at Humboldt-Universtität zu Berlin."
+    )
   })
 
   output$description4 = renderUI({
-    HTML("*Potential production (PP) and water-limited production (WLP) for 4 selected crop types.
-          Simulation conducted by Pedro Alencar [https://orcid.org/0000-0001-6221-8580]
-          using the WOFOST model [https://doi.org/10.1016/j.agsy.2018.06.018] 
-          and CER climatic forcing [https://doi.org/10.1002/joc.4835].")
+    HTML(
+      "*Potential production (PP) and water-limited production (WLP) for 4 selected crop types.
+      Simulation conducted by Pedro Alencar [https://orcid.org/0000-0001-6221-8580]
+      using the WOFOST model [https://doi.org/10.1016/j.agsy.2018.06.018] 
+      and CER climatic forcing [https://doi.org/10.1002/joc.4835]."
+    )
   })
 
   output$description5 = renderUI({
-    HTML("*Two different impact indicators, based on RS and yield reports.
-          Values are simple estimates without quantification of uncertainty.
-          For details on the methodology, please see the journal article: [link]")
+    HTML(
+      "*Two different impact indicators: (1) the ratio of land surface temperature (LST) and
+      normalized difference vegetation index (NDVI) from Landsat-8 imagery on the level of 
+      individual fields. (2) Estimated loss per hectare on county level based on the difference 
+      of expected and reported yields for 12 selected crop types. Values are point estimates 
+      without quantification of uncertainty. For details on the methodology, please see the +
+      journal article (link above)"
+    )
   })
-
-}
+} # server
 
 # ----------------------------------------------------------------------------------------------- #
 # Run App
