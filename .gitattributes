@@ -27,3 +27,5 @@ data/processed/X_lk9b.csv filter=lfs diff=lfs merge=lfs -text
 data/processed/relative_gaps_vs_thresholds.csv filter=lfs diff=lfs merge=lfs -text
 data/processed/rel_gap_table.csv filter=lfs diff=lfs merge=lfs -text
 data/processed/thresholds_all.csv filter=lfs diff=lfs merge=lfs -text
+data/appdata/* filter=lfs diff=lfs merge=lfs -text
+app/appdata/* filter=lfs diff=lfs merge=lfs -text
