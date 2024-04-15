@@ -4,10 +4,9 @@ library(dplyr)
 
 # get EPSG number
 getEPSG = function(v){
-return(paste0("EPSG:",
-              gsub("[^0-9]", "", 
-                   last(strsplit(st_crs(v)$wkt, split="EPSG")[[1]])))
-)
+  return(paste0(
+    "EPSG:", gsub("[^0-9]", "", last(strsplit(st_crs(v)$wkt, split="EPSG")[[1]]))
+  ))
 }
 
 setwd("./data/intermediate")
@@ -18,11 +17,10 @@ for (yoi in 2013:2022){
   vname = paste0("exposure_plotscale_", yoi, ".gpkg")
   outname = paste0("indicators_on_exposure_", yoi, ".gpkg")
   shapes = read_sf(vname) %>% st_transform("EPSG:4326") # much faster in extraction
-  #shapes = st_make_valid(shapes)
+  #shapes = st_make_valid(shapes)  # does not work for all
   idx = which(st_is_valid(shapes)) # kick out invalid polygons
   shapes = shapes[idx,]
   epsg = getEPSG(shapes)
-  #epsg = "EPSG:25833"
 
   # read shapes and (folder of) rasters
   filelist = list.files(rfolder)

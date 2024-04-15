@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-# 2010-2014
-#dt/ha, bei silomais brutto dt TM/ha
+# 2010-2014 in dt/ha
 winter_rye       = {'lbg1': 63, 'lbg2': 55, 'lbg3': 43, 'lbg4': 35, 'lbg5': 25}
 winter_wheat     = {'lbg1': 77, 'lbg2': 65, 'lbg3': 50, 'lbg4': 38, 'lbg5': 23}
 winter_barley    = {'lbg1': 75, 'lbg2': 63, 'lbg3': 50, 'lbg4': 36, 'lbg5': 25}
