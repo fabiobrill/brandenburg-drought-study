@@ -10,11 +10,9 @@
 library(bslib)
 library(dplyr)
 library(DT)
-library(ggplot2)
 library(leaflet)
 library(leafgl)
 library(leafsync)
-library(plotly)
 library(sf)
 library(shiny)
 library(shinyjs)
@@ -24,7 +22,7 @@ library(tidyr)
 # ----------------------------------------------------------------------------------------------- #
 # I/O
 # ----------------------------------------------------------------------------------------------- #
-setwd("./data/appdata/")
+setwd("./app/appdata/")
 
 # outline of the country
 brandenburg = read_sf("brandenburg_3857.gpkg")
