@@ -10,6 +10,7 @@
 library(bslib)
 library(dplyr)
 library(DT)
+library(ggplot2)
 library(leaflet)
 library(leafgl)
 library(leafsync)
@@ -17,12 +18,12 @@ library(sf)
 library(shiny)
 library(shinyjs)
 library(terra)
-library(tidyr)
 
 # ----------------------------------------------------------------------------------------------- #
 # I/O
 # ----------------------------------------------------------------------------------------------- #
-setwd("./app/appdata/")
+setwd("app/appdata") # local
+#setwd("appdata")      # remote
 
 # outline of the country
 brandenburg = read_sf("brandenburg_3857.gpkg")
@@ -53,8 +54,8 @@ nfk = rast("nfk_cropped.tif")
 vulnerability = sf::read_sf("vi_4326.geojson")
 
 # impacts
-lstndvi = read_sf("lstndvi_anom_polygons.gpkg")
-loss_estimate = read_sf("aloss4326.gpkg")
+lstndvi = read_sf("lstndvi_anom_polygons.gpkg") # too large to render live
+#lstndvi = read.csv("lstndvi.csv")
 loss_long = read_sf("aloss_longformat.gpkg")
 
 # crop model
@@ -139,12 +140,12 @@ ui = fluidPage(
     )
   ),
 
-  title = "Drought hazard, vulnerability, and impacts for agriculture in Brandenburg",
+  title = "Drought hazard, vulnerability, and impacts to agriculture in Brandenburg",
   tags$header(
       class = "col-sm-12 title-panel",
-      tags$h1("Drought hazard, vulnerability, and impacts for agriculture in Brandenburg"),
+      tags$h1("Drought hazard, vulnerability, and impacts to agriculture in Brandenburg"),
       tags$a(
-        href = "https://nhess.copernicus.org/",
+        href = "https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1149/egusphere-2024-1149.pdf",
         "for details please see the article submitted to NHESS")
   ),
 
@@ -221,7 +222,11 @@ ui = fluidPage(
           style = "font-size:50%"), htmlOutput("description2")),
         tabPanel("Vulnerability", leafletOutput("vulnerability"), htmlOutput("description3")),
         tabPanel("Crop Model", uiOutput("cropmodel"), htmlOutput("description4")),
-        tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5"))
+        tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5")) # high resolution maps
+        #tabPanel("Impacts", verticalLayout(
+        #  splitLayout(cellWidths = c("50%", "50%"),
+        #    plotOutput("densityplot"), leafletOutput("impacts")),
+        #  htmlOutput("description5")))
       )
     ) # main panel
   ) # sidebar
@@ -318,27 +323,27 @@ server = function(input, output){
   })
 
   # Impacts on field level (LST/NDVI-Anom.) AND on county level (EUR/ha) as synced maps
-  output$impacts = renderUI({
-      labelText = sprintf("<strong>%s</strong><br/>%s €.ha<sup> -1</sup>",
-        loss_estimate$NUTS_NAME, round(loss_estimate[[paste0("aloss", input$yr)]], 1)) %>%
-        lapply(htmltools::HTML)
+  output$impacts = renderUI({ #renderLeaflet
       subdata = lstndvi %>% 
         dplyr::filter(year == input$yr) #%>%
-        #st_cast(to="POLYGON")
-      polygoncolor = case_when(
-        subdata$LSTNDVI_anom < 0 ~ "#004bcd",
-        subdata$LSTNDVI_anom < 0.1 ~ "#ffffff",
-        subdata$LSTNDVI_anom < 0.25 ~ "#ffd815",
-        subdata$LSTNDVI_anom >= 0.25 ~ "#c42902",
-        is.na(subdata$LSTNDVI_anom) ~ "transparent"
+          #st_cast(to="POLYGON")
+        polygoncolor = case_when(
+          subdata$LSTNDVI_anom < 0 ~ "#004bcd",
+          subdata$LSTNDVI_anom < 0.1 ~ "#ffffff",
+          subdata$LSTNDVI_anom < 0.25 ~ "#ffd815",
+          subdata$LSTNDVI_anom >= 0.25 ~ "#c42902",
+          is.na(subdata$LSTNDVI_anom) ~ "transparent"
       )
       m1 = leaflet() %>% addProviderTiles(basemap) %>%
         addGlPolygons(data = subdata, fillColor= polygoncolor, popup = NULL) %>%
         addLegend(labels=c("< 0", "< 0.1", "< 0.25", "> 0.25"),
           colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
           title = "LST/NDVI-Anom.",  position = lpos)
-      subloss = loss_long %>% dplyr::filter(year==input$yr)
-      m2 = leaflet(subloss) %>% 
+        subloss = loss_long %>% dplyr::filter(year==input$yr)
+      labelText = sprintf("<strong>%s</strong><br/>%s €.ha<sup> -1</sup>",
+        subloss$"NUTS_NAME", round(subloss[["aloss"]], 1)) %>%
+        lapply(htmltools::HTML)
+      m2 = leaflet(subloss) %>%
         addProviderTiles(basemap) %>%
         addPolygons(layerId = subloss$NUTS_NAME, color = "#444444", weight = 1,
           smoothFactor = 0.5, opacity = 1.0, fillOpacity = 0.5,
@@ -350,6 +355,24 @@ server = function(input, output){
           title = "Loss estimate [€/ha]",  position = lpos)
       sync(m1, m2)
   })
+
+  output$densityplot = renderPlot({
+    lstndvi$Year = case_when(
+    lstndvi$year == input$yr ~ "selected",
+    lstndvi$year != input$yr ~ "background"
+    )
+    ggplot(lstndvi) +
+      geom_density(
+        aes(LSTNDVI_anom, col=Year, fill=Year),
+          adjust=2, size=rel(1.2), alpha=0.1) +
+        theme_bw(base_size = 15) +
+        scale_color_manual(values=c("selected"="#ffd815", background="grey")) +
+        scale_fill_manual(values=c("selected"="#ffd815", background="grey")) +
+        xlim(-0.5, 1.5) +
+        ylim(0, 4.2) +
+        xlab("LST/NDVI Anom.") +
+        theme(legend.position = "bottom", legend.title=element_blank())
+})
 
   # Crop model visualization
   output$cropmodel = renderUI({
@@ -415,10 +438,13 @@ server = function(input, output){
     HTML(
       "*Two different impact indicators: (1) the ratio of land surface temperature (LST) and
       normalized difference vegetation index (NDVI) from Landsat-8 imagery on the level of 
-      individual fields. (2) Estimated loss per hectare on county level based on the difference 
-      of expected and reported yields for 12 selected crop types. Values are point estimates 
-      without quantification of uncertainty. For details on the methodology, please see the +
-      journal article (link above)"
+      individual fields. Displayed is the distribution for entire Brandenburg for the selected
+      year aginst the background of all other years. (2) Estimated loss per hectare on county
+      level based on the difference of expected and reported yields for 12 selected crop types. 
+      Values are point estimates without quantification of uncertainty.
+      For details on the methodology, please see the journal article (link above).
+      Field-level data can be downloaded from the GitHub repository 
+      [https://github.com/fabiobrill/brandenburg-drought-study]."
     )
   })
 } # server

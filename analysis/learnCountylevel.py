@@ -24,6 +24,8 @@ data = pd.read_csv("relative_gaps_vs_thresholds.csv", encoding='latin-1')
 
 # 2 entries are outliers with rel_gap = 17 and 21 (Barnim potatoes)
 data = data.loc[(data.rel_gap < 1) & (data.rel_gap > -1)] # '> 0' for setup 9b
+#data = data.loc[data.crop == "winter_wheat"]
+#data = data.loc[data.crop == "rye"]
 
 # ----------------------------------------------------------------------------------------------- #
 # indexing to select columns from data that start with "SPEI_", "lstvndi_", "SMI_total_", "AZL_"
@@ -68,7 +70,6 @@ X_lk6 = subdata[crop_cols + SPEI_monthly_cols + SMI_monthly_cols + AZL_cols].dro
 X_lk7 = subdata[crop_cols + SPEI_monthly_cols + SMI_monthly_cols + AZL_cols + SMI_total_cols].drop(dropcols, axis="columns")
 X_lk8 = subdata[crop_cols + SPEI_monthly_cols + SMI_monthly_cols + AZL_cols + SMI_total_cols + LSTNDVI_cols].drop(dropcols, axis="columns")
 X_lk9 = subdata[crop_cols + SPEI_monthly_cols + SMI_monthly_cols + AZL_cols + SMI_total_cols + LSTNDVI_cols].drop(dropcols, axis="columns")
-X_lk10 = subdata[SPEI_monthly_cols + SMI_monthly_cols + AZL_cols + SMI_total_cols + LSTNDVI_cols].drop(dropcols, axis="columns")
 
 # ----------------------------------------------------------------------------------------------- #
 # parametrization
@@ -77,14 +78,6 @@ xgb_init = xgb.XGBRegressor(
     booster = 'gbtree',
     tree_method = 'hist'
 )
-
-param_grid = {'n_estimators':[200], # tuned later via early stopping
-              'learning_rate':[0.05, 0.1, 0.2],
-              'max_depth':[4, 5, 6, 7, 8, 9],
-              'subsample':[0.8],
-              'colsample_bytree':[0.8],
-              'gamma':[0, 0.1, 1]
-}
 
 param_grid = {'n_estimators':[200], # tuned later via early stopping
               'learning_rate':[0.05, 0.1, 0.2],
@@ -110,7 +103,6 @@ model_lk9, cvscores_lk9, holdoutscores_lk9, best_params_lk9 = trainXGB(xgb_init,
 # 9b is using the same features as 9, but only data where rel_gap > 0
 # this specific model run has been started manually by changing the code above
 model_lk9b, cvscores_lk9b, holdoutscores_lk9b, best_params_lk9b = trainXGB(xgb_init, param_grid, X_lk9, y, repetitions=10)
-model_lk10, cvscores_lk10, holdoutscores_lk10, best_params_lk10 = trainXGB(xgb_init, param_grid, X_lk10, y, repetitions=10)
 
 # ----------------------------------------------------------------------------------------------- #
 # compute SHAP values
@@ -125,8 +117,6 @@ shapvals_lk7 = shap.TreeExplainer(model_lk7).shap_values(X_lk7)
 shapvals_lk8 = shap.TreeExplainer(model_lk8).shap_values(X_lk8)
 shapvals_lk9 = shap.TreeExplainer(model_lk9).shap_values(X_lk9)
 shapvals_lk9b = shap.TreeExplainer(model_lk9b).shap_values(X_lk9)
-shapvals_lk10 = shap.TreeExplainer(model_lk10).shap_values(X_lk10)
-
 
 # ----------------------------------------------------------------------------------------------- #
 # save everything (hard-coded)
@@ -203,9 +193,18 @@ model_lk9b.save_model("model_lk9b.json")
 np.save("shapvals_lk9b.npy", shapvals_lk9b)
 X_lk9.to_csv("X_lk9.csv")
 
-pd.Series(cvscores_lk9b).to_csv("cvscores_lk9b2.csv")
-pd.Series(holdoutscores_lk9b).to_csv("holdoutscores_lk9b2.csv")
-pd.DataFrame(best_params_lk9b).to_csv("best_params_lk9b2.csv")
-model_lk9b.save_model("model_lk9b2.json")
-np.save("shapvals_lk9b2.npy", shapvals_lk9b)
-X_lk9b.to_csv("X_lk9b2.csv")
+# wheat
+#pd.Series(cvscores_lk9).to_csv("cvscores_lk9wheat.csv")
+#pd.Series(holdoutscores_lk9).to_csv("holdoutscores_lk9wheat.csv")
+#pd.DataFrame(best_params_lk9).to_csv("best_params_lk9wheat.csv")
+#model_lk9.save_model("model_lk9wheat.json")
+#np.save("shapvals_lk9wheat.npy", shapvals_lk9)
+#X_lk9.to_csv("X_lk9wheat.csv")
+
+# rye
+#pd.Series(cvscores_lk9).to_csv("cvscores_lk9rye.csv")
+#pd.Series(holdoutscores_lk9).to_csv("holdoutscores_lk9rye.csv")
+#pd.DataFrame(best_params_lk9).to_csv("best_params_lk9rye.csv")
+#model_lk9.save_model("model_lk9rye.json")
+#np.save("shapvals_lk9rye.npy", shapvals_lk9)
+#X_lk9.to_csv("X_lk9rye.csv")

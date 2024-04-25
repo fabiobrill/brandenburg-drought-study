@@ -1,9 +1,11 @@
 # brandenburg-drought-study
-Scripts and data related to the journal paper: "Exploring drought hazard, vulnerability, and impacts to agriculture in Brandenburg"
+Scripts and data related to the journal paper: ["Exploring drought hazard, vulnerability, and related impacts to agriculture in Brandenburg"](https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1149/egusphere-2024-1149.pdf). Created during the transdisciplinary research project [CliWaC](https://www.cliwac.de/), funded by the [Einstein Foundation](https://www.einsteinfoundation.de/en/) and [Berlin University Alliance](https://www.berlin-university-alliance.de/en/index.html).
 
-Created during the transdisciplinary research project [CliWaC](https://www.cliwac.de/), funded by the [Einstein Foundation](https://www.einsteinfoundation.de/en/) and [Berlin University Alliance](https://www.berlin-university-alliance.de/en/index.html).
+In "data/processed" the results of the entire preprocessing chain are published. These files are sufficient to reproduce the machine learning part and the figures included in the main article. "app.R" creates an interactive data visualization (R-Shiny) to explore spatiotemporal patterns of drought-related indicators. It can be run locally. A version without the high resolution data is hosted here: https://fabiobrill.shinyapps.io/agrdrought-explorer-brandenburg/
 
-Some parts of the processing are coded in Python, others in R. Reasons for this mix are implementation details of specific operations. The flowchart visualizes in which order the scripts have been used to create the results described in the paper. In "data/processed" the results of the entire preprocessing chain are published. These files are sufficient to reproduce the machine learning part and the figures included in the main article. "app.R" creates an interactive data visualization (R-Shiny) to explore spatiotemporal patterns of drought-related indicators. It can be run locally.
+![](app_screenshot.png)
+
+Some parts of the processing are coded in Python, others in R. Reasons for this mix are implementation details of specific operations. The flowchart visualizes in which order the scripts have been used to create the results described in the paper.
 
 ![](scriptflow.png)
 
