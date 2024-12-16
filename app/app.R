@@ -22,8 +22,8 @@ library(terra)
 # ----------------------------------------------------------------------------------------------- #
 # I/O
 # ----------------------------------------------------------------------------------------------- #
-setwd("app/appdata") # local
-#setwd("appdata")      # remote
+#setwd("app/appdata") # local
+setwd("appdata")      # remote
 
 # outline of the country
 brandenburg = read_sf("brandenburg_3857.gpkg")
