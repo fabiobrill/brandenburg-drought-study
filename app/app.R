@@ -54,8 +54,8 @@ nfk = rast("nfk_cropped.tif")
 vulnerability = sf::read_sf("vi_4326.geojson")
 
 # impacts
-lstndvi = read_sf("lstndvi_anom_polygons.gpkg") # too large to render live
-#lstndvi = read.csv("lstndvi.csv")
+#lstndvi = read_sf("lstndvi_anom_polygons.gpkg") # too large to render live
+lstndvi = read.csv("lstndvi.csv")
 loss_long = read_sf("aloss_longformat.gpkg")
 
 # crop model
@@ -140,10 +140,10 @@ ui = fluidPage(
     )
   ),
 
-  title = "Drought hazard, vulnerability, and impacts to agriculture in Brandenburg",
+  title = "Drought hazard, vulnerability, and impacts on agriculture in Brandenburg",
   tags$header(
       class = "col-sm-12 title-panel",
-      tags$h1("Drought hazard, vulnerability, and impacts to agriculture in Brandenburg"),
+      tags$h1("Drought hazard, vulnerability, and impacts on agriculture in Brandenburg"),
       tags$a(
         href = "https://doi.org/10.5194/nhess-24-4237-2024",
         "For details please see the article published in NHESS")
@@ -222,11 +222,11 @@ ui = fluidPage(
           style = "font-size:50%"), htmlOutput("description2")),
         tabPanel("Vulnerability", leafletOutput("vulnerability"), htmlOutput("description3")),
         tabPanel("Crop Model", uiOutput("cropmodel"), htmlOutput("description4")),
-        tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5")) # high resolution maps
-        #tabPanel("Impacts", verticalLayout(
-        #  splitLayout(cellWidths = c("50%", "50%"),
-        #    plotOutput("densityplot"), leafletOutput("impacts")),
-        #  htmlOutput("description5")))
+        #tabPanel("Impacts", uiOutput("impacts"), htmlOutput("description5")) # high resolution maps
+        tabPanel("Impacts", verticalLayout(
+          splitLayout(cellWidths = c("50%", "50%"),
+            plotOutput("densityplot"), leafletOutput("impacts")),
+          htmlOutput("description5")))
       )
     ) # main panel
   ) # sidebar
@@ -323,27 +323,12 @@ server = function(input, output){
   })
 
   # Impacts on field level (LST/NDVI-Anom.) AND on county level (EUR/ha) as synced maps
-  output$impacts = renderUI({ #renderLeaflet
-      subdata = lstndvi %>% 
-        dplyr::filter(year == input$yr) #%>%
-          #st_cast(to="POLYGON")
-        polygoncolor = case_when(
-          subdata$LSTNDVI_anom < 0 ~ "#004bcd",
-          subdata$LSTNDVI_anom < 0.1 ~ "#ffffff",
-          subdata$LSTNDVI_anom < 0.25 ~ "#ffd815",
-          subdata$LSTNDVI_anom >= 0.25 ~ "#c42902",
-          is.na(subdata$LSTNDVI_anom) ~ "transparent"
-      )
-      m1 = leaflet() %>% addProviderTiles(basemap) %>%
-        addGlPolygons(data = subdata, fillColor= polygoncolor, popup = NULL) %>%
-        addLegend(labels=c("< 0", "< 0.1", "< 0.25", "> 0.25"),
-          colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
-          title = "LST/NDVI-Anom.",  position = lpos)
-        subloss = loss_long %>% dplyr::filter(year==input$yr)
-      labelText = sprintf("<strong>%s</strong><br/>%s €.ha<sup> -1</sup>",
+  output$impacts = renderLeaflet({
+      subloss = loss_long %>% dplyr::filter(year==input$yr)
+        labelText = sprintf("<strong>%s</strong><br/>%s €.ha<sup> -1</sup>",
         subloss$"NUTS_NAME", round(subloss[["aloss"]], 1)) %>%
         lapply(htmltools::HTML)
-      m2 = leaflet(subloss) %>%
+      leaflet(subloss) %>%
         addProviderTiles(basemap) %>%
         addPolygons(layerId = subloss$NUTS_NAME, color = "#444444", weight = 1,
           smoothFactor = 0.5, opacity = 1.0, fillOpacity = 0.5,
@@ -353,7 +338,6 @@ server = function(input, output){
         addLegend(labels=c("< 0", "0 - 100", "100 - 200", "> 200"),
           colors=c("#004bcd", "#ffffff", "#ffd815", "#c42902"),
           title = "Loss estimate [€/ha]",  position = lpos)
-      sync(m1, m2)
   })
 
   output$densityplot = renderPlot({
