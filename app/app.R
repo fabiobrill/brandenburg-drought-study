@@ -145,8 +145,8 @@ ui = fluidPage(
       class = "col-sm-12 title-panel",
       tags$h1("Drought hazard, vulnerability, and impacts to agriculture in Brandenburg"),
       tags$a(
-        href = "https://egusphere.copernicus.org/preprints/2024/egusphere-2024-1149/egusphere-2024-1149.pdf",
-        "for details please see the article submitted to NHESS")
+        href = "https://doi.org/10.5194/nhess-24-4237-2024",
+        "For details please see the article published in NHESS")
   ),
 
   # Selection menu, sliders and buttons
@@ -402,7 +402,7 @@ server = function(input, output){
       'Frequency' returns the count of years where the selected indicator is above/below the 
       selected threshold. Values of SMI-Total are internally divided by 100 to match the value
       range of the monthly SMI layers (to use the same slider for all layers).
-      For details on the methodology, please see the journal article: [link]"
+      For details on the methodology, please see the journal article (link in the title panel)"
     )
   })
 
